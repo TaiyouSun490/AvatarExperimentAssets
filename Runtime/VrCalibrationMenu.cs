@@ -33,6 +33,9 @@ namespace AvatarExperiments
         private GameObject bodyPage, wristPage, fingerPage, limbPage;
         private Text status, wristValues, fingerStatus, limbStatus;
         private readonly Text[] limbValues = new Text[4];
+        private GameObject measurePage;
+        private Text measurementStatus;
+        private JointPointCalibration measurement;
         private readonly List<Control> controls = new();
         private readonly List<XRHandSubsystem> hands = new();
         private Font font;
@@ -56,6 +59,8 @@ namespace AvatarExperiments
             calibration = GetComponent<AvatarCalibration>();
             input = GetComponent<AvatarTrackingInput>(); session = GetComponent<XrSession>();
             fingers = GetComponent<XRHandHumanoidFingerDriver>();
+            measurement = GetComponent<JointPointCalibration>() ?? gameObject.AddComponent<JointPointCalibration>();
+            measurement.Configure(trackingOrigin,calibration.ApplyMeasuredLimb);
             Build();
         }
         private void Build()
@@ -79,7 +84,22 @@ namespace AvatarExperiments
             AddButton(panel,"close","Close",280,-127,134,48,()=>SetOpen(false));
             bodyPage = Page("Body"); wristPage = Page("Wrist angles"); fingerPage = Page("Finger calibration");
             limbPage = Page("Arm and leg lengths");
-            Label(limbPage.transform,"Fit standing height first, then adjust each limb.\nArms: shoulder to wrist. Legs: hip to ankle.\nManual fit: no leg measurement from head/hands alone.",0,-223,675,110,21);
+            Label(limbPage.transform,"Fit height first. Arms: shoulder to wrist; legs: hip to ankle.",0,-199,675,65,21);
+            AddButton(limbPage.transform,"measureJoints","Measure joints with controller",0,-261,660,46,ShowMeasurement);
+            measurePage=Page("Controller joint measurement");
+            Label(measurePage.transform,"Use the OPPOSITE controller. Green dot = grip probe.\nKeep the measured limb still. Hold each point 0.3 sec.\nRelease then press trigger at each of the 3 joints.",0,-222,675,110,21);
+            string[] measuredNames={"Left arm","Right arm","Left leg","Right leg"};
+            for(int i=0;i<4;i++)
+            {
+                int index=i;
+                AddButton(measurePage.transform,$"measure{i}",measuredNames[i],i%2==0?-170:170,-315-(i/2)*58,320,50,()=>
+                {calibration.Cancel();fingers?.CancelCalibration();measurement.Begin(index);});
+            }
+            AddButton(measurePage.transform,"applyMeasurement","Apply measurement",-170,-438,320,50,()=>measurement.Apply());
+            AddButton(measurePage.transform,"cancelMeasurement","Cancel",170,-438,320,50,measurement.Cancel);
+            AddButton(measurePage.transform,"saveMeasurement","Save on this PC",-170,-499,320,50,calibration.Save);
+            AddButton(measurePage.transform,"backLengths","Back to lengths",170,-499,320,50,ShowLimbs);
+            measurementStatus=Label(measurePage.transform,"",0,-608,675,145,22);
             for (int i=0;i<4;i++)
             {
                 int index=i; float y=-317-i*57;
@@ -161,11 +181,13 @@ namespace AvatarExperiments
             controls.Add(new Control{Id=id,Rect=rect,Image=image,Action=action});
         }
         private void ShowPage(bool wrists)
-        { bodyPage.SetActive(!wrists);wristPage.SetActive(wrists);fingerPage.SetActive(false);limbPage.SetActive(false);SetHover(null);nextText=0; }
+        { measurement.Cancel();measurePage.SetActive(false);bodyPage.SetActive(!wrists);wristPage.SetActive(wrists);fingerPage.SetActive(false);limbPage.SetActive(false);SetHover(null);nextText=0; }
         private void ShowFingers()
-        {bodyPage.SetActive(false);wristPage.SetActive(false);fingerPage.SetActive(true);limbPage.SetActive(false);SetHover(null);nextText=0;}
+        {measurement.Cancel();measurePage.SetActive(false);bodyPage.SetActive(false);wristPage.SetActive(false);fingerPage.SetActive(true);limbPage.SetActive(false);SetHover(null);nextText=0;}
         private void ShowLimbs()
-        {bodyPage.SetActive(false);wristPage.SetActive(false);fingerPage.SetActive(false);limbPage.SetActive(true);SetHover(null);nextText=0;}
+        {measurement.Cancel();measurePage.SetActive(false);bodyPage.SetActive(false);wristPage.SetActive(false);fingerPage.SetActive(false);limbPage.SetActive(true);SetHover(null);nextText=0;}
+        private void ShowMeasurement()
+        {bodyPage.SetActive(false);wristPage.SetActive(false);fingerPage.SetActive(false);limbPage.SetActive(false);measurePage.SetActive(true);SetHover(null);nextText=0;}
         public void SetOpen(bool open)
         {
             IsOpen=open;
@@ -188,6 +210,7 @@ namespace AvatarExperiments
             }
             else if(calibration!=null && calibration.Busy)calibration.Cancel();
             if(!open && fingers!=null && fingers.Busy)fingers.CancelCalibration();
+            if(!open && measurement!=null)measurement.Cancel();
             if(input!=null)input.UiOwnsGestures=open;
         }
         private void Update()
@@ -218,7 +241,8 @@ namespace AvatarExperiments
             if(input!=null)input.UiOwnsGestures=IsOpen||menu||both||bothLatched||Time.unscaledTime<consumeUntil;
             if(IsOpen)
             {
-                UpdateControllerPointers();
+                if(measurement.Capturing) { HidePointers();SetHover(null);leftTriggerArmed=rightTriggerArmed=false; }
+                else UpdateControllerPointers();
                 if(Time.unscaledTime>=nextText){nextText=Time.unscaledTime+.1f;RefreshText();}
             }
         }
@@ -247,6 +271,7 @@ namespace AvatarExperiments
             string[] names={"Left arm", "Right arm", "Left leg", "Right leg"};
             for(int i=0;i<4;i++) limbValues[i].text=$"{names[i]}: {calibration.LimbLength(i)*100:F1} cm";
             limbStatus.text=calibration.Status;
+            measurementStatus.text=measurement.Status;
         }
         private void UpdateControllerPointers()
         {

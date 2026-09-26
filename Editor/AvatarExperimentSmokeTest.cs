@@ -24,7 +24,15 @@ namespace AvatarExperiments.Editor
                 Check(XRHandHumanoidFingerDriver.Straight(Vector3.zero,Vector3.right,Vector3.right*2,.8f),"Straight finger");
                 Check(!XRHandHumanoidFingerDriver.Straight(Vector3.zero,Vector3.right,Vector3.right+Vector3.up,.8f),"Bent finger");
                 Check(Resources.Load<Shader>("AvatarExperiments/Shaders/WorldSpaceUI")!=null,"Packaged UI shader");
-                Debug.Log("AvatarExperimentAssets smoke tests: PASS (8 checks). No user settings changed.");
+                Check(JointPointCalibration.TryLength(Vector3.zero,new Vector3(.3f,0,0),new Vector3(.3f,.25f,0),true,out float arm)&&Mathf.Abs(arm-.55f)<.0001f,"Bent-arm polyline, not endpoint distance");
+                Check(JointPointCalibration.TryLength(Vector3.zero,new Vector3(0,.45f,0),new Vector3(0,.9f,0),false,out _),"Leg landmarks");
+                Check(!JointPointCalibration.TryLength(Vector3.zero,Vector3.zero,Vector3.one,true,out _),"Duplicate landmark rejection");
+                Check(!JointPointCalibration.TryLength(Vector3.zero,Vector3.one,new Vector3(float.NaN,0,0),true,out _),"Invalid landmark rejection");
+                Check(!JointPointCalibration.TryProbe(default,Vector3.zero,out _),"Untracked probe rejected");
+                var reflection=PlanarMirror.ReflectionMatrix(new Vector3(0,0,2),Vector3.back);
+                Check(Vector3.Distance(reflection.MultiplyPoint(new Vector3(1,3,1)),new Vector3(1,3,3))<.0001f,"Mirror plane");
+                Check(Resources.Load<Shader>("AvatarExperiments/Shaders/PlanarMirror")!=null,"Packaged mirror shader");
+                Debug.Log("AvatarExperimentAssets smoke tests: PASS (15 checks). No user settings changed.");
             }
             finally { UnityEngine.Object.DestroyImmediate(origin); }
         }

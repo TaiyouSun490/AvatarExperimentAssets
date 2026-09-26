@@ -5,6 +5,8 @@
 LiquidBodyNVidia の Assets/LiquidAvatar の独自実装を元に再構成:
 VRメニュー、身体寸法・手首設定、XR Hands指リターゲット、FinalIK接続、
 XRカメラ、頭部の一人称非表示、URPワールド空間UIシェーダー。
+鏡は独自のURP反射コード・シェーダーとUnityのQuadで構成し、
+元プロジェクトのフレーム形状・プレハブ・マテリアルはコピーしていません。
 AvatarRig / AvatarTrackingInput / AvatarExperimentSetup とEditor導入補助は
 第三者モデルや液体機能に依存しないようこのパッケージ用に整理しました。
 

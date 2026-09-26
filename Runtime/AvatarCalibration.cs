@@ -192,6 +192,14 @@ namespace AvatarExperiments
             ratios[index] = Mathf.Clamp(ratios[index] + metres / (baselineLengths[index] * RelativeScale), .7f, 1.3f);
             ApplyLimbLengths(ratios[0], ratios[1], ratios[2], ratios[3]);
         }
+        public bool ApplyMeasuredLimb(int index, float metres)
+        {
+            if (Busy || index < 0 || index > 3 || !float.IsFinite(metres) || baselineLengths[index] < .05f) return false;
+            float[] ratios = { settings.LeftArm, settings.RightArm, settings.LeftLeg, settings.RightLeg };
+            // Do not clamp a suspect measurement silently; leave the avatar unchanged.
+            ratios[index] = metres / (baselineLengths[index] * RelativeScale);
+            return ApplyLimbLengths(ratios[0], ratios[1], ratios[2], ratios[3]);
+        }
         private static bool ValidLimb(float value) => float.IsFinite(value) && value >= .7f && value <= 1.3f;
         public void AdjustWrist(bool left, int axis, float degrees)
         {
