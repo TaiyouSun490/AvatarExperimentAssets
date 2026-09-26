@@ -1,0 +1,5 @@
+{
+  "name": "AvatarExperiments.Editor",
+  "references": ["AvatarExperiments.Runtime"],
+  "includePlatforms": ["Editor"]
+}

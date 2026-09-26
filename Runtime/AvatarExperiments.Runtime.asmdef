@@ -1,0 +1,6 @@
+{
+  "name": "AvatarExperiments.Runtime",
+  "rootNamespace": "AvatarExperiments",
+  "references": ["Unity.XR.Hands", "Unity.XR.OpenXR", "Unity.XR.Management", "Unity.ugui", "Unity.RenderPipelines.Core.Runtime"],
+  "autoReferenced": true
+}
