@@ -24,3 +24,11 @@ AvatarRig / AvatarTrackingInput / AvatarExperimentSetup とEditor導入補助は
 
 Unity公式依存はUPMの依存宣言のみです。FinalIKはユーザー自身が取得してください。
 このパッケージのMITライセンスは、別途取得した依存物のライセンスを変更しません。
+# FPS Arm module
+
+Runtime/FpsArms and Editor/FpsArms contain project-authored tracking, calibration,
+IK and twist-distribution code extracted from the MeltingHandIllusion FPS-arm work.
+They use the repository's MIT license. No third-party model, material, texture,
+animation clip, paid IK implementation or participant calibration is included.
+The fp_male_hand profile helper records paths/references to a user's separately
+imported model; it does not distribute that model or its animations.

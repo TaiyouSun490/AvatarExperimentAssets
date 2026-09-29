@@ -6,6 +6,15 @@ LiquidBodyNVidia の独自実装からトラッキング・キャリブレーシ
 
 ## 導入
 
+### 一人称の腕だけを使う実験
+
+`AvatarExperiments.FpsArms`に、MeltingHandIllusionから切り出したFPS Armモジュールを追加しました。
+全身Humanoid／FinalIKなしで、素手・コントローラー入力、指追跡、左一回の両腕校正、
+腕と手の拡縮、肘ポール補正、ねじれ分散を利用できます。
+モデルを同梱せず、利用者のモデルをProfileから設定します。
+**Tools > Avatar Experiments > FPS Arms**が導入メニューです。
+手順・モデル要件・検証範囲は[Documentation~/FPSArms.md](Documentation~/FPSArms.md)を参照してください。
+
 確認対象: Unity **6000.5.9f1**、URP **17.5.0**、XR Hands **1.8.1**、OpenXR **1.17.1**。
 Unity 6 の全バージョンに対する互換性は未確認です。
 
