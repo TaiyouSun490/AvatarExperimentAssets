@@ -1,8 +1,8 @@
 {
   "name": "com.taiyousun490.avatar-experiments",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "displayName": "Avatar Experiment Assets",
-  "description": "PCVR humanoid and FPS arm tracking, optional FinalIK bridge and reusable avatar calibration.",
+  "description": "PCVR avatar tracking and calibration, virtual hand illusion protocols, displaced visuotactile stimulation and proprioceptive drift measurement.",
   "unity": "6000.5",
   "author": { "name": "TaiyouSun490" },
   "dependencies": {

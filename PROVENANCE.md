@@ -35,3 +35,15 @@ They use the repository's MIT license. No third-party model, material, texture,
 animation clip, paid IK implementation or participant calibration is included.
 The fp_male_hand profile helper records paths/references to a user's separately
 imported model; it does not distribute that model or its animations.
+
+# Virtual Hand experiment module
+
+Runtime/VirtualHand and Editor/VirtualHand contain project-authored experiment,
+brush calibration, spatial/temporal mapping, deformation, measurement and logging
+code developed from the tabletop MeltingHandIllusion work. They use this MIT license.
+The mannequin sample is generated from mathematical ellipsoids. No third-party hand,
+skin texture, PolyToots/Amplify material/shader, or MeltShader source is distributed.
+The optional ESP32 bridge discovers a separately installed Unity client through its
+public API; the ESP32 repository and firmware are not copied. Documentation cites
+research informing the measurement methods, describes VR adaptations, and does not
+claim to distribute a validated questionnaire or fully reproduce those experiments.
