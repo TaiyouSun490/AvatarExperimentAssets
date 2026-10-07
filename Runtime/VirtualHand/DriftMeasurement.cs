@@ -36,6 +36,7 @@ namespace AvatarExperiments.VirtualHand
         public Vector3 positionInTrackingSpace;
         public float coordinateMetres, stimulusCoordinateMetres, initialCoordinateMetres, rulerShiftMetres, rulerReportedNumber;
         public bool reversal, boundary;
+        public DriftResponse Copy()=>(DriftResponse)MemberwiseClone();
     }
     [Serializable]
     public sealed class DriftEstimate
@@ -51,14 +52,18 @@ namespace AvatarExperiments.VirtualHand
     /// <summary>Coordinates are in the unchanged XR tracking frame, never in the displaced virtual hand.</summary>
     public sealed class DriftMeasurement
     {
-        public DriftSettings Settings { get; }
+        readonly DriftSettings settings;
+        public DriftSettings Settings=>settings.Copy();
+        public DriftMethod Method=>settings.method;
+        public Vector3 PointingTipOffset=>settings.pointingTipOffset;
+        public float RulerHalfRange=>Mathf.FloorToInt(settings.halfRange*100)*.01f;
         public Vector3 Reference { get; }
         public Vector3 Axis { get; }
         public float Coordinate { get; private set; }
         public float InitialCoordinate { get; private set; }
         public int RulerZero { get; private set; }
         public float RulerShift { get; private set; }
-        public bool Complete => responses.Count >= (Settings.method==DriftMethod.AlternatingStaircase?Settings.staircaseResponses:Settings.repetitions);
+        public bool Complete => responses.Count >= (settings.method==DriftMethod.AlternatingStaircase?settings.staircaseResponses:settings.repetitions);
         public int Count=>responses.Count;
         public Vector3 ProbePosition => Reference+Axis*Coordinate;
         readonly System.Random random;
@@ -70,63 +75,71 @@ namespace AvatarExperiments.VirtualHand
         public DriftMeasurement(DriftSettings settings, Vector3 reference, int seed)
         {
             settings.Validate();if(!float.IsFinite(reference.sqrMagnitude))throw new ArgumentException("Invalid physical reference.");
-            Settings=settings.Copy();Reference=reference;Axis=settings.axisInTrackingSpace.normalized;random=new System.Random(seed);Next();
+            this.settings=settings.Copy();Reference=reference;Axis=settings.axisInTrackingSpace.normalized;random=new System.Random(seed);Next();
         }
         void Next()
         {
-            Coordinate=Settings.method==DriftMethod.AlternatingStaircase?stairs[Count%2]:(float)(random.NextDouble()*2-1)*Settings.halfRange;
+            Coordinate=settings.method==DriftMethod.AlternatingStaircase?stairs[Count%2]:(float)(random.NextDouble()*2-1)*settings.halfRange;
             InitialCoordinate=Coordinate;
             // The ruler origin AND labels change between responses; no correct location is displayed.
             RulerShift=(float)(random.NextDouble()-.5)*.1f;RulerZero=random.Next(20,80);
         }
         public void Adjust(float metres)
         {
-            if(Settings.method!=DriftMethod.MarkerAdjustment||Complete||!float.IsFinite(metres))return;
-            Coordinate=Mathf.Clamp(Coordinate+metres,-Settings.halfRange,Settings.halfRange);
+            if(settings.method!=DriftMethod.MarkerAdjustment||Complete||!float.IsFinite(metres))return;
+            Coordinate=Mathf.Clamp(Coordinate+metres,-settings.halfRange,settings.halfRange);
         }
-        public void ConfirmMarker(double time)=>Record(Reference+Axis*Coordinate,time);
+        public void ConfirmMarker(double time)
+        {
+            RequireMethod(DriftMethod.MarkerAdjustment);AddResponse(Reference+Axis*Coordinate,time);
+        }
         public void ConfirmRuler(float number,double time)
         {
-            if(Settings.method!=DriftMethod.RandomizedRuler)throw new InvalidOperationException("Not a ruler measurement.");
+            RequireMethod(DriftMethod.RandomizedRuler);
             float coordinate=(number-RulerZero)*.01f+RulerShift;
-            if(!float.IsFinite(number)||Mathf.Abs(coordinate-RulerShift)>Settings.halfRange)throw new ArgumentOutOfRangeException(nameof(number));
-            Record(Reference+Axis*coordinate,time);
+            if(!float.IsFinite(number)||Mathf.Abs(coordinate-RulerShift)>RulerHalfRange+.000001f)throw new ArgumentOutOfRangeException(nameof(number));
+            AddResponse(Reference+Axis*coordinate,time);
             responses[responses.Count-1].rulerReportedNumber=number;
         }
         public void Record(Vector3 response,double time)
         {
+            RequireMethod(DriftMethod.InvisibleControllerPointing);AddResponse(response,time);
+        }
+        void RequireMethod(DriftMethod method)
+        {if(settings.method!=method)throw new ArgumentException("The response type does not match the active measurement method.");}
+        void AddResponse(Vector3 response,double time)
+        {
             if(Complete||!double.IsFinite(time)||time<0||time<lastTime||!float.IsFinite(response.sqrMagnitude))throw new ArgumentException("Invalid drift response.");
-            if(Settings.method==DriftMethod.AlternatingStaircase)throw new InvalidOperationException("Use a left/right judgement.");
             float value=Vector3.Dot(response-Reference,Axis);
             responses.Add(new DriftResponse{index=Count,elapsed=time,positionInTrackingSpace=response,coordinateMetres=value,
                 stimulusCoordinateMetres=Coordinate,initialCoordinateMetres=InitialCoordinate,rulerZero=RulerZero,rulerShiftMetres=RulerShift,
-                boundary=(Settings.method==DriftMethod.MarkerAdjustment&&Mathf.Abs(value)>=Settings.halfRange-.00001f)||
-                    (Settings.method==DriftMethod.RandomizedRuler&&Mathf.Abs(value-RulerShift)>=Settings.halfRange-.00001f)});
+                boundary=(settings.method==DriftMethod.MarkerAdjustment&&Mathf.Abs(value)>=settings.halfRange-.00001f)||
+                    (settings.method==DriftMethod.RandomizedRuler&&Mathf.Abs(value-RulerShift)>=RulerHalfRange-.00001f)});
             lastTime=time;if(!Complete)Next();
         }
         /// <param name="probeIsPositive">True means the probe is on the positive-axis side (right for default lateral axis) of the felt finger.</param>
         public void Judge(bool probeIsPositive,double time)
         {
-            if(Settings.method!=DriftMethod.AlternatingStaircase||Complete||!double.IsFinite(time)||time<0||time<lastTime)throw new ArgumentException("Invalid staircase response.");
+            if(settings.method!=DriftMethod.AlternatingStaircase||Complete||!double.IsFinite(time)||time<0||time<lastTime)throw new ArgumentException("Invalid staircase response.");
             int stair=Count%2, direction=probeIsPositive?-1:1;
             bool reversal=lastDirection[stair]!=0&&lastDirection[stair]!=direction;
             if(reversal)reversals[stair].Add(Coordinate);
-            float next=Coordinate+direction*(stair==0?Settings.coarseStep:Settings.fineStep);
+            float next=Coordinate+direction*(stair==0?settings.coarseStep:settings.fineStep);
             responses.Add(new DriftResponse{index=Count,staircase=stair,direction=direction,elapsed=time,coordinateMetres=Coordinate,
                 stimulusCoordinateMetres=Coordinate,initialCoordinateMetres=InitialCoordinate,positionInTrackingSpace=ProbePosition,
-                reversal=reversal,boundary=Mathf.Abs(next)>Settings.halfRange});
-            lastDirection[stair]=direction;stairs[stair]=Mathf.Clamp(next,-Settings.halfRange,Settings.halfRange);lastTime=time;if(!Complete)Next();
+                reversal=reversal,boundary=Mathf.Abs(next)>settings.halfRange});
+            lastDirection[stair]=direction;stairs[stair]=Mathf.Clamp(next,-settings.halfRange,settings.halfRange);lastTime=time;if(!Complete)Next();
         }
         public DriftEstimate Estimate()
         {
-            var result=new DriftEstimate{method=Settings.method,responses=new List<DriftResponse>(responses),valid=Complete,reason=Complete?"":"Incomplete"};
+            var result=new DriftEstimate{method=settings.method,responses=responses.ConvertAll(response=>response.Copy()),valid=Complete,reason=Complete?"":"Incomplete"};
             if(responses.Count==0)return result;
-            if(Settings.method==DriftMethod.AlternatingStaircase)
+            if(settings.method==DriftMethod.AlternatingStaircase)
             {
                 result.coarseReversals=reversals[0].Count;result.fineReversals=reversals[1].Count;
                 result.coarseEstimateMetres=LastMean(reversals[0]);result.fineEstimateMetres=LastMean(reversals[1]);
                 result.coordinateMetres=result.fineEstimateMetres;result.meanPosition=Reference+Axis*result.coordinateMetres;
-                if(result.coarseReversals<Settings.requiredReversals||result.fineReversals<Settings.requiredReversals)
+                if(result.coarseReversals<settings.requiredReversals||result.fineReversals<settings.requiredReversals)
                 {result.valid=false;result.reason="Insufficient reversals; no valid position estimate.";}
             }
             else
@@ -140,7 +153,7 @@ namespace AvatarExperiments.VirtualHand
             return result;
         }
         float LastMean(List<float> values)
-        {if(values.Count==0)return 0;int start=Math.Max(0,values.Count-Settings.requiredReversals);float sum=0;for(int i=start;i<values.Count;i++)sum+=values[i];return sum/(values.Count-start);}
+        {if(values.Count==0)return 0;int start=Math.Max(0,values.Count-settings.requiredReversals);float sum=0;for(int i=start;i<values.Count;i++)sum+=values[i];return sum/(values.Count-start);}
         public static float Drift(DriftEstimate before,DriftEstimate after)
         {if(!before.valid||!after.valid||before.method!=after.method)throw new InvalidOperationException("Drift needs valid pre/post estimates from the same method.");return after.coordinateMetres-before.coordinateMetres;}
     }

@@ -1,6 +1,6 @@
 {
   "name": "com.taiyousun490.avatar-experiments",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "displayName": "Avatar Experiment Assets",
   "description": "PCVR avatar tracking and calibration, virtual hand illusion protocols, displaced visuotactile stimulation and proprioceptive drift measurement.",
   "unity": "6000.5",

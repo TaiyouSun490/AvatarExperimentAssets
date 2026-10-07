@@ -141,6 +141,8 @@ namespace AvatarExperiments.VirtualHand
             if (!CanConfigure() || !Tracked || !TipConfirmed || Pivoting) { Status = "先に筆先のキャリブレーションと追跡を確認してください。"; return; }
             if (CalibrationStep >= 3) { Status = "登録済みです。変更する場合は「3点を登録し直す」を押してください。"; return; }
             if (visualLandmarks.Length != 3 || !visualLandmarks[CalibrationStep]) { Status = "仮想手の基準点が不足しています。"; return; }
+            if(!float.IsFinite(maximumAlignmentError)||maximumAlignmentError<=0)
+            {Status="位置合わせの許容誤差は正の有限値にしてください。";return;}
             realPoints[CalibrationStep] = RawTip;
             targetPoints[CalibrationStep] = visualLandmarks[CalibrationStep].position;
             CalibrationStep++;
@@ -152,11 +154,13 @@ namespace AvatarExperiments.VirtualHand
             if(AlignmentError>maximumAlignmentError)
             {Calibrated=false;CalibrationStep=0;Status=$"対応点の最大誤差 {AlignmentError*1000:F1} mm。手のサイズ・基準点を確認してください。";return;}
             calibratedWorldToHand=experiment.hand.transform.worldToLocalMatrix;
+            var neutralPosition=Quaternion.Inverse(mappingRotation)*(experiment.hand.transform.position-mappingTranslation);
+            var neutralRotation=Quaternion.Inverse(mappingRotation)*experiment.hand.transform.rotation;
             if(experiment.placement)
-                experiment.placement.SetNeutral(Quaternion.Inverse(mappingRotation)*(experiment.hand.transform.position-mappingTranslation),Quaternion.Inverse(mappingRotation)*experiment.hand.transform.rotation);
+                experiment.placement.SetNeutral(neutralPosition,neutralRotation);
             handPosition = experiment.hand.transform.position; handRotation = experiment.hand.transform.rotation; handScale = experiment.hand.transform.lossyScale;
             if (experiment.realHandAnchor)
-                experiment.realHandAnchor.SetPositionAndRotation(Quaternion.Inverse(mappingRotation) * (handPosition - mappingTranslation), Quaternion.Inverse(mappingRotation) * handRotation);
+                experiment.realHandAnchor.SetPositionAndRotation(neutralPosition,neutralRotation);
             history.Clear();
             Status = $"位置合わせ完了（最大誤差 {AlignmentError*1000:F1} mm）。確認用プレビューは明示的に有効にしてください。";
         }

@@ -53,7 +53,7 @@ namespace AvatarExperiments.VirtualHand
         public void Refresh()
         {
             if(!blank||!study||study.Measurement==null)return;
-            foreach(Transform child in visuals.transform)if(child!=instruction.transform)Destroy(child.gameObject);
+            ClearProbes();
             probe=null;var measurement=study.Measurement;var settings=measurement.Settings;
             var space=study.experiment.trackedBrush.trackingSpace;
             if(settings.method==DriftMethod.MarkerAdjustment||settings.method==DriftMethod.AlternatingStaircase)
@@ -64,7 +64,7 @@ namespace AvatarExperiments.VirtualHand
             }
             if(settings.method==DriftMethod.RandomizedRuler)
             {
-                int count=Mathf.FloorToInt(settings.halfRange*100);
+                int count=Mathf.RoundToInt(measurement.RulerHalfRange*100);
                 for(int i=-count;i<=count;i++)
                 {
                     Vector3 position=space.TransformPoint(measurement.Reference+measurement.Axis*(measurement.RulerShift+i*.01f));
@@ -85,7 +85,7 @@ namespace AvatarExperiments.VirtualHand
         public void HoldBlank()
         {
             Blackout();ratings=false;
-            foreach(Transform child in visuals.transform)if(child!=instruction.transform)Destroy(child.gameObject);
+            ClearProbes();
             probe=null;instruction.text="Please keep your real hand still.\nWait for the experimenter.";
         }
         public void BeginRatings()
@@ -124,23 +124,23 @@ namespace AvatarExperiments.VirtualHand
             }
             var measurement=study.Measurement;if(measurement==null)return;
             if(Time.realtimeSinceStartupAsDouble-presentedAt<.3)return;
-            if(measurement.Settings.method==DriftMethod.MarkerAdjustment)
+            if(measurement.Method==DriftMethod.MarkerAdjustment)
             {
                 if(move)measurement.Adjust(direction*.06f*Time.unscaledDeltaTime);
                 if(probe)probe.transform.position=study.experiment.trackedBrush.trackingSpace.TransformPoint(measurement.ProbePosition);
                 if(pressed)study.SubmitMarker();
             }
-            else if(measurement.Settings.method==DriftMethod.AlternatingStaircase)
+            else if(measurement.Method==DriftMethod.AlternatingStaircase)
             {
                 device.TryGetFeatureValue(UnityEngine.XR.CommonUsages.primaryButton,out bool x);device.TryGetFeatureValue(UnityEngine.XR.CommonUsages.secondaryButton,out bool y);
                 bool left=(tracked&&x)||(keyboard!=null&&keyboard.leftArrowKey.isPressed),right=(tracked&&y)||(keyboard!=null&&keyboard.rightArrowKey.isPressed);
                 bool choice=left||right;if(choice&&!axisHeld&&left!=right)study.SubmitJudgement(right);axisHeld=choice;
             }
-            else if(measurement.Settings.method==DriftMethod.InvisibleControllerPointing)
+            else if(measurement.Method==DriftMethod.InvisibleControllerPointing)
             {
                 if(!tracked||!device.TryGetFeatureValue(UnityEngine.XR.CommonUsages.devicePosition,out var position)||!device.TryGetFeatureValue(UnityEngine.XR.CommonUsages.deviceRotation,out var rotation))
                 {stableSince=Time.realtimeSinceStartupAsDouble;return;}
-                var point=position+rotation*measurement.Settings.pointingTipOffset;
+                var point=position+rotation*measurement.PointingTipOffset;
                 if(Vector3.Distance(point,stablePoint)>.01f){stablePoint=point;stableSince=Time.realtimeSinceStartupAsDouble;}
                 if(pressed&&Time.realtimeSinceStartupAsDouble-stableSince>=.3)study.SubmitPoint(point);
             }
@@ -150,6 +150,11 @@ namespace AvatarExperiments.VirtualHand
             // Dynamic fonts can replace their atlas. Use our own world-space shader;
             // the Editor/IMGUI font material may carry a clip rectangle unrelated to VR.
             if(runtimeTextMaterial&&font)runtimeTextMaterial.mainTexture=font.material.mainTexture;
+        }
+        void ClearProbes()
+        {
+            foreach(Transform child in visuals.transform)if(child!=instruction.transform)
+            {child.gameObject.SetActive(false);Destroy(child.gameObject);}
         }
         TextMesh Text(string name,Transform parent,string text,float size)
         {
@@ -162,11 +167,11 @@ namespace AvatarExperiments.VirtualHand
             if(!blank)return;
             foreach(var renderer in hidden)if(renderer)renderer.enabled=true;hidden.Clear();
             foreach(var canvas in hiddenCanvases)if(canvas)canvas.enabled=true;hiddenCanvases.Clear();
-            if(visuals)Destroy(visuals);probe=null;instruction=null;
+            if(visuals){visuals.SetActive(false);Destroy(visuals);}probe=null;instruction=null;
             if(runtimeTextMaterial)Destroy(runtimeTextMaterial);runtimeTextMaterial=null;
             if(participantCamera){participantCamera.backgroundColor=oldBackground;participantCamera.clearFlags=oldClear;}
             blank=ratings=false;
         }
-        void OnDisable(){End();}
+        void OnDisable(){End();if(study&&study.Active)study.Abort("Measurement presenter disabled.");}
     }
 }

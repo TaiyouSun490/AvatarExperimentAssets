@@ -83,6 +83,8 @@ namespace AvatarExperiments.VirtualHand.Editor
             Check(brush.Ready&&brush.AlignmentError<.0001f,"Rigid registration recovers known translation/yaw with residual under 0.1 mm");
             var realTip=Quaternion.Inverse(mapping)*(targets[0]-shift);
             Check(Vector3.Distance(brush.MapToVisual(realTip),realTip)<.0001f,"Neutral hand aligns with the actual calibrated hand");
+            Check(Vector3.Distance(e.realHandAnchor.position,e.placement.NeutralPosition)<.0001f&&Quaternion.Angle(e.realHandAnchor.rotation,e.placement.NeutralRotation)<.01f,
+                "Physical hand anchor uses the neutral pose without a second inverse registration");
             e.placement.Apply(new Vector3(.17f,0,.03f),25);
             var expected=e.hand.transform.TransformPoint(e.hand.transform.InverseTransformPoint(brush.visualLandmarks[0].position));
             Check(Vector3.Distance(brush.MapToVisual(realTip),expected)<.0001f,"Offset + yaw preserve anatomical brush correspondence");
@@ -120,7 +122,9 @@ namespace AvatarExperiments.VirtualHand.Editor
             Check(File.ReadAllText(study.RecordPath).Contains("Desktop simulation"),"Synthetic measurements cannot masquerade as physical participant data");
             string saved=File.ReadAllText(study.RecordPath);study.setupChecked=false;study.BeginStudy();study.Abort("Idle stop");
             Check(File.ReadAllText(study.RecordPath)==saved&&study.RecordData.status=="completed","Failed restart and idle stop preserve the completed study file");
+            Check(e.keyboardControls&&e.controllerControls,"Completed study restores the previous standalone controls");
             e.ResetTrial();
+            VirtualHandReviewVerification.Run(e,Check);
         }
     }
 }
