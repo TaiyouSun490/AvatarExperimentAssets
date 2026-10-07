@@ -29,6 +29,7 @@ namespace AvatarExperiments
         }
         public bool Calibrated => AllCalibrated(leftBindings) && AllCalibrated(rightBindings);
         public bool Busy { get; private set; }
+        public bool ManualUpdate;
         public string Status { get; private set; } = "Fingers not calibrated. Use open-hand calibration.";
         private Transform leftHandBone, rightHandBone;
         private string saveKey;
@@ -45,7 +46,7 @@ namespace AvatarExperiments
         private Transform trackingOrigin;
         private XRHandSubsystem subsystem;
 
-        public void Configure(Animator humanoidAnimator, Transform origin)
+        public void Configure(Animator humanoidAnimator, Transform origin, string profileId = null, bool restoreSaved = true)
         {
             animator = humanoidAnimator;
             trackingOrigin = origin;
@@ -53,11 +54,16 @@ namespace AvatarExperiments
             rightHandBone = animator.GetBoneTransform(HumanBodyBones.RightHand);
             BuildBindings(leftBindings, true);
             BuildBindings(rightBindings, false);
-            saveKey = "AvatarExperiments.Fingers.v1." + animator.avatar.name;
-            LoadCalibration();
+            saveKey = "AvatarExperiments.Fingers.v1." + (profileId ?? animator.avatar.name);
+            if (restoreSaved) LoadCalibration();
         }
 
         private void LateUpdate()
+        { if (!ManualUpdate) ApplyPose(); }
+
+        // Manual owners call this after their IK and before contact-mesh baking.
+        // Controller / uncalibrated finger poses may be supplied by that owner.
+        public void ApplyPose(bool leftFallback = false, bool rightFallback = false)
         {
             if (animator == null)
                 return;
@@ -69,8 +75,8 @@ namespace AvatarExperiments
             }
             if (Busy) StepCalibration();
             bool running = subsystem != null && subsystem.running;
-            ApplyHand(running ? subsystem.leftHand : default, leftBindings);
-            ApplyHand(running ? subsystem.rightHand : default, rightBindings);
+            if (Busy || !leftFallback) ApplyHand(running ? subsystem.leftHand : default, leftBindings);
+            if (Busy || !rightFallback) ApplyHand(running ? subsystem.rightHand : default, rightBindings);
         }
 
         private void ApplyHand(XRHand hand, List<Binding> bindings)
@@ -89,6 +95,9 @@ namespace AvatarExperiments
         public static Quaternion RetargetLocal(Quaternion relative, Quaternion reference, Quaternion basis, Quaternion rest) =>
             (basis * (relative * Quaternion.Inverse(reference)) * Quaternion.Inverse(basis) * rest).normalized;
 
+        public static Quaternion CalibrationBasis(Quaternion parentRestInHand, Quaternion wristToAvatarHand, Quaternion parentInWrist) =>
+            (Quaternion.Inverse(parentRestInHand) * wristToAvatarHand * parentInWrist).normalized;
+
         private static bool TryRelative(XRHand hand, Binding binding, out Quaternion relative)
         {
             relative = Quaternion.identity;
@@ -104,7 +113,7 @@ namespace AvatarExperiments
             { Status = "Avatar needs all 15 finger bones per hand."; return; }
             Busy = true; readyAt = Time.unscaledTime + 3; expiresAt = readyAt + 25;
             stableSamples = 0;
-            Status = "Put controllers down; show BOTH open hands to the headset.";
+            Status = "Release pinch. Show BOTH palms, fingers straight and thumbs spread.";
         }
         public void CancelCalibration()
         { if (Busy) { Busy = false; Status = "Finger calibration cancelled; previous reference kept."; } }
@@ -113,12 +122,15 @@ namespace AvatarExperiments
         {
             float now = Time.unscaledTime;
             if (now < readyAt)
-            { Status = $"Open-hand calibration in {Mathf.CeilToInt(readyAt-now)}... Put controllers down."; return; }
+            { Status = $"Starting in {Mathf.CeilToInt(readyAt-now)}... Release pinch; open both hands."; return; }
             if (now > expiresAt)
             { Busy = false; Status = "Timed out. Enable hand tracking and show both open hands. Previous reference kept."; return; }
-            if (subsystem == null || !subsystem.running || !ReadOpenHand(subsystem.leftHand, leftBindings, leftHandBone, leftSample, leftBasis) ||
-                !ReadOpenHand(subsystem.rightHand, rightBindings, rightHandBone, rightSample, rightBasis))
-            { stableSamples = 0; Status = "Waiting: show BOTH open hands, fingers straight. Keep thumbs open."; return; }
+            if (subsystem == null || !subsystem.running)
+            { stableSamples = 0; Status = "No hand tracking. Put controllers down; enable hands in the headset."; return; }
+            bool leftReady=ReadOpenHand(subsystem.leftHand,leftBindings,leftHandBone,leftSample,leftBasis);
+            bool rightReady=ReadOpenHand(subsystem.rightHand,rightBindings,rightHandBone,rightSample,rightBasis);
+            if(!leftReady||!rightReady)
+            { stableSamples=0;Status=$"Open hands: left {(leftReady?"OK":"waiting")}, right {(rightReady?"OK":"waiting")}. Straighten fingers; move thumbs away.";return; }
             if (stableSamples == 0 || !Stable(leftSample, leftReference) || !Stable(rightSample, rightReference))
             {
                 Array.Copy(leftSample,leftReference,15); Array.Copy(rightSample,rightReference,15);
@@ -154,7 +166,7 @@ namespace AvatarExperiments
                 var binding=bindings[i];
                 if (!TryRelative(hand,binding,out sample[i]) || !hand.GetJoint(binding.ParentJoint).TryGetPose(out var parent)) return false;
                 var parentInWrist = Quaternion.Inverse(wrist.rotation) * parent.rotation;
-                basis[i] = (Quaternion.Inverse(binding.ParentRestInHand) * wristToAvatarHand * parentInWrist).normalized;
+                basis[i] = CalibrationBasis(binding.ParentRestInHand,wristToAvatarHand,parentInWrist);
                 if(!Valid(basis[i]))return false;
             }
             return true;

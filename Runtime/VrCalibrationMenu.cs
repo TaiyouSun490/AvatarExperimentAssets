@@ -7,7 +7,7 @@ using UnityEngine.XR.Hands;
 
 namespace AvatarExperiments
 {
-    /// <summary>World-space calibration UI: tracked controller aim rays + same-hand triggers.</summary>
+    /// <summary>World-space UI: raw controller rays/triggers or palm rays/index pinches.</summary>
     [DefaultExecutionOrder(-100)]
     public sealed class VrCalibrationMenu : MonoBehaviour
     {
@@ -21,8 +21,13 @@ namespace AvatarExperiments
         public bool IsOpen { get; private set; }
         public Canvas WorldCanvas { get; private set; }
         public string HoveredControl => hovered != null ? hovered.Id : "";
-        public string PointerStatus { get; private set; } = "Controller not tracked";
+        public string LastAction { get; private set; } = "none";
+        public string PointerStatus { get; private set; } = "Track a hand or controller";
         public bool DesktopPreview;
+        public bool UseShortcuts = true;
+        public bool ConsumeInput => IsOpen || handMenuHold.Pending || Time.unscaledTime < consumeUntil;
+        public string ReopenHint = "Left thumb + MIDDLE hold: open. A / B / F8 also opens.";
+        public event Action<bool> OpenChanged;
         private AvatarCalibration calibration;
         private AvatarTrackingInput input;
         private XRHandHumanoidFingerDriver fingers;
@@ -41,10 +46,15 @@ namespace AvatarExperiments
         private Font font;
         private Material uiMaterial;
         private Control hovered;
-        private bool shownForSession, lastMenu, leftPinch, rightPinch, bothLatched, activeLeft;
+        private bool shownForSession, lastMenu, activeLeft;
         private bool leftTriggerArmed, rightTriggerArmed;
         private LineRenderer leftLaser, rightLaser;
-        private float bothSince = -1, nextText, consumeUntil;
+        private float nextText, consumeUntil;
+        private XRHandSubsystem uiHands;
+        private readonly HandUiPointer leftHandPointer = new(), rightHandPointer = new();
+        private readonly HandUiMenuHold handMenuHold = new();
+        private enum PointerSource { None, Controller, Hand }
+        private PointerSource leftPointerSource, rightPointerSource;
         private static readonly InputFeatureUsage<bool> PointerTracked = new("PointerIsTracked");
         private static readonly InputFeatureUsage<uint> PointerTracking = new("PointerTrackingState");
         private static readonly InputFeatureUsage<Vector3> PointerPosition = new("PointerPosition");
@@ -76,7 +86,7 @@ namespace AvatarExperiments
             WorldCanvas.worldCamera = view; WorldCanvas.sortingOrder = 10;
             var background = go.AddComponent<Image>(); background.material=uiMaterial; background.color = new Color(.025f,.045f,.065f,.97f); background.raycastTarget = false;
             Label(panel, "Avatar calibration", 0, -36, 680, 48, 30);
-            Label(panel, "AIM with either CONTROLLER + TRIGGER to select", 0, -78, 680, 35, 21);
+            Label(panel, "Aim the ray: INDEX PINCH or controller TRIGGER", 0, -78, 680, 35, 21);
             AddButton(panel,"body","Body",-280,-127,134,48,()=>ShowPage(false));
             AddButton(panel,"wrists","Wrists",-140,-127,134,48,()=>ShowPage(true));
             AddButton(panel,"fingers","Fingers",0,-127,134,48,ShowFingers);
@@ -132,8 +142,8 @@ namespace AvatarExperiments
             wristValues = Label(wristPage.transform,"",0,-555,676,53,22);
             AddButton(wristPage.transform,"resetWrists","Reset wrists",-170,-615,320,52,calibration.ResetWrists);
             AddButton(wristPage.transform,"saveWrists","Save on this PC",170,-615,320,52,calibration.Save);
-            Label(wristPage.transform,"Close / reopen: right A / B, Menu / F8, or both pinches",0,-673,690,32,18);
-            Label(fingerPage.transform,"1. Press Calibrate, then put controllers down.\n2. Show BOTH hands, fingers straight, thumbs open.\n3. Hold the open pose steady for 1 second.",0,-244,675,144,24);
+            Label(wristPage.transform,ReopenHint,0,-673,690,32,18);
+            Label(fingerPage.transform,"1. Pinch Calibrate, then RELEASE the pinch.\n2. Show BOTH palms; straighten and spread fingers.\n3. Thumbs away from palms; hold still for 1 second.",0,-244,675,144,23);
             AddButton(fingerPage.transform,"calibrateFingers","Calibrate open hands (3 sec)",0,-361,660,58,()=>
             {if(calibration.Busy)calibration.Cancel();fingers?.BeginOpenHandCalibration();});
             AddButton(fingerPage.transform,"cancelFingers","Cancel",-170,-434,320,54,()=>fingers?.CancelCalibration());
@@ -190,10 +200,12 @@ namespace AvatarExperiments
         {bodyPage.SetActive(false);wristPage.SetActive(false);fingerPage.SetActive(false);limbPage.SetActive(false);measurePage.SetActive(true);SetHover(null);nextText=0;}
         public void SetOpen(bool open)
         {
+            bool changed = IsOpen != open;
             IsOpen=open;
             if(panel==null)return;
             panel.gameObject.SetActive(open);
             HidePointers();
+            leftHandPointer.Reset();rightHandPointer.Reset();handMenuHold.Reset();
             leftTriggerArmed=rightTriggerArmed=false;
             SetHover(null); consumeUntil=Time.unscaledTime+.4f;
             if(open && view!=null)
@@ -212,6 +224,7 @@ namespace AvatarExperiments
             if(!open && fingers!=null && fingers.Busy)fingers.CancelCalibration();
             if(!open && measurement!=null)measurement.Cancel();
             if(input!=null)input.UiOwnsGestures=open;
+            if(changed)OpenChanged?.Invoke(open);
         }
         private void Update()
         {
@@ -219,32 +232,34 @@ namespace AvatarExperiments
             if(!running)
             {
                 if(IsOpen)SetOpen(false);
-                shownForSession=false;if(input!=null)input.UiOwnsGestures=false;return;
+                handMenuHold.Reset();shownForSession=false;if(input!=null)input.UiOwnsGestures=false;return;
             }
-            ReadPinches();
-            bool menu=MenuPressed();
+            RefreshUiHands();
+            bool menu=UseShortcuts&&MenuPressed();
             if(!shownForSession && (DesktopPreview || (InputDevices.GetDeviceAtXRNode(XRNode.Head)
                 .TryGetFeatureValue(CommonUsages.isTracked,out bool headTracked) && headTracked)))
             {shownForSession=true;SetOpen(true);}
-            if((menu&&!lastMenu)||Input.GetKeyDown(KeyCode.F8))ToggleMenu();
+            if(UseShortcuts&&((menu&&!lastMenu)||KeyboardReopen()))ToggleMenu();
             lastMenu=menu;
-            bool both=leftPinch&&rightPinch;
-            if(both)
-            {
-                if(bothSince<0)bothSince=Time.unscaledTime;
-                if(!bothLatched && Time.unscaledTime-bothSince>=1 && (fingers==null || !fingers.Busy))
-                {bothLatched=true;ToggleMenu();}
-            }
-            else {bothSince=-1;bothLatched=false;}
+            if(!IsOpen&&HandMenuRequested())SetOpen(true);
             // B is also a legacy scatter input: consume the entire held menu press,
             // including after closing, so it cannot spill into liquid controls.
-            if(input!=null)input.UiOwnsGestures=IsOpen||menu||both||bothLatched||Time.unscaledTime<consumeUntil;
+            if(input!=null)input.UiOwnsGestures=ConsumeInput||menu;
             if(IsOpen)
             {
-                if(measurement.Capturing) { HidePointers();SetHover(null);leftTriggerArmed=rightTriggerArmed=false; }
-                else UpdateControllerPointers();
+                UpdateControllerPointers();
                 if(Time.unscaledTime>=nextText){nextText=Time.unscaledTime+.1f;RefreshText();}
             }
+        }
+        private static bool KeyboardReopen()
+        {
+#if ENABLE_INPUT_SYSTEM
+            return UnityEngine.InputSystem.Keyboard.current?.f8Key.wasPressedThisFrame == true;
+#elif ENABLE_LEGACY_INPUT_MANAGER
+            return Input.GetKeyDown(KeyCode.F8);
+#else
+            return false;
+#endif
         }
         private void ToggleMenu()
         {
@@ -259,12 +274,13 @@ namespace AvatarExperiments
             if(!IsOpen)return false;
             foreach(var control in controls)
                 if(control.Id==id && control.Rect.gameObject.activeInHierarchy)
-                { control.Action();nextText=0;return true; }
+                { LastAction=id;control.Action();nextText=0;return true; }
             return false;
         }
         private void RefreshText()
         {
-            status.text=$"Size x{calibration.RelativeScale:F3}\n{calibration.Status}\n{PointerStatus} | A / B / Menu / F8 to reopen";
+            string measured=calibration.TryTrackedEyePose(out var eye)?$"HMD eye: {eye.position.y*100:F1} cm":"HMD eye: untracked";
+            status.text=$"Size x{calibration.RelativeScale:F3} | {measured}\n{calibration.Status}\n{PointerStatus}\n{ReopenHint}";
             Vector3 l=calibration.LeftWrist,r=calibration.RightWrist;
             wristValues.text=$"Left: {l.x:F0}, {l.y:F0}, {l.z:F0} deg     Right: {r.x:F0}, {r.y:F0}, {r.z:F0} deg";
             fingerStatus.text=fingers!=null?fingers.Status:"Finger driver unavailable";
@@ -275,15 +291,66 @@ namespace AvatarExperiments
         }
         private void UpdateControllerPointers()
         {
-            bool leftValid=TryControllerRay(XRNode.LeftHand,out var leftRay,out bool leftPressed);
-            bool rightValid=TryControllerRay(XRNode.RightHand,out var rightRay,out bool rightPressed);
+            bool leftValid=TryUiRay(true,out var leftRay,out bool leftPressed);
+            bool rightValid=TryUiRay(false,out var rightRay,out bool rightPressed);
+            // Keep the other pointer available for Cancel during joint probing.
+            if(measurement.Capturing)
+            {
+                if(measurement.Limb%2==0){rightValid=false;rightPressed=false;}
+                else{leftValid=false;leftPressed=false;}
+            }
             ProcessControllerPointers(leftValid,leftRay,leftPressed,rightValid,rightRay,rightPressed);
+        }
+        private void RefreshUiHands()
+        {
+            if(uiHands!=null&&uiHands.running)return;
+            uiHands=null;hands.Clear();SubsystemManager.GetSubsystems(hands);
+            foreach(var candidate in hands)if(candidate.running){uiHands=candidate;break;}
+        }
+        private bool TryUiRay(bool left,out Ray ray,out bool pressed)
+        {
+            var pointer=left?leftHandPointer:rightHandPointer;
+            ray=default;pressed=false;bool valid=false,handAvailable=false;
+            var source=PointerSource.None;
+            if(uiHands!=null)
+            {
+                var hand=left?uiHands.leftHand:uiHands.rightHand;
+                handAvailable=HandUiPointer.TryReadHand(hand,out var knuckle,out var direction,out float ratio);
+                valid=pointer.Step(handAvailable,knuckle,direction,ratio,Time.unscaledDeltaTime,out var local,out pressed);
+                if(valid)
+                {
+                    valid=TryWorldRay(local.origin,Quaternion.LookRotation(local.direction),trackingOrigin,out ray);
+                    if(valid)source=PointerSource.Hand;
+                }
+            }
+            if(!handAvailable)
+            {
+                pointer.Reset();
+                valid=TryControllerRay(left?XRNode.LeftHand:XRNode.RightHand,out ray,out pressed);
+                if(valid)source=PointerSource.Controller;
+            }
+            if(left){if(leftPointerSource!=source)leftTriggerArmed=false;leftPointerSource=source;}
+            else{if(rightPointerSource!=source)rightTriggerArmed=false;rightPointerSource=source;}
+            return valid;
+        }
+        private bool HandMenuRequested()
+        {
+            if(uiHands==null)return handMenuHold.Step(false,false,Time.unscaledDeltaTime);
+            var hand=uiHands.leftHand;
+            if(!hand.isTracked)return handMenuHold.Step(false,false,Time.unscaledDeltaTime);
+            bool valid=true;
+            valid&=hand.GetJoint(XRHandJointID.ThumbTip).TryGetPose(out var thumb);
+            valid&=hand.GetJoint(XRHandJointID.MiddleTip).TryGetPose(out var middle);
+            valid&=hand.GetJoint(XRHandJointID.IndexTip).TryGetPose(out var index);
+            bool gesture=Vector3.Distance(thumb.position,middle.position)<.025f&&Vector3.Distance(thumb.position,index.position)>.055f;
+            return handMenuHold.Step(valid,gesture,Time.unscaledDeltaTime);
         }
         private bool TryControllerRay(XRNode node,out Ray ray,out bool pressed)
         {
             ray=default;pressed=false;
             var device=InputDevices.GetDeviceAtXRNode(node);
-            if(!device.isValid || (device.characteristics&InputDeviceCharacteristics.Controller)==0)return false;
+            if(!device.isValid || (device.characteristics&InputDeviceCharacteristics.Controller)==0 ||
+                (device.characteristics&InputDeviceCharacteristics.HandTracking)!=0)return false;
             Vector3 p;Quaternion q;
             if(device.TryGetFeatureValue(PointerTracked,out bool aimTracked))
             {
@@ -337,7 +404,8 @@ namespace AvatarExperiments
             if(inside) {var p=panel.InverseTransformPoint(activeLeft?leftPoint:rightPoint);cursor.localPosition=new Vector3(p.x,p.y,-.2f);}
             DrawLaser(leftLaser,leftValid,leftRay,leftDistance,activeLeft);
             DrawLaser(rightLaser,rightValid,rightRay,rightDistance,!activeLeft);
-            PointerStatus=valid?(activeLeft?"Left controller":"Right controller"):"Controller not tracked";
+            var source=activeLeft?leftPointerSource:rightPointerSource;
+            PointerStatus=valid?(activeLeft?"Left ":"Right ")+(source==PointerSource.Hand?"hand: index pinch":"controller: trigger"):"No pointer: show a hand or wake a controller";
             if((activeLeft?leftClick:rightClick)&&hovered!=null && Time.unscaledTime>=consumeUntil)Activate(hovered.Id);
         }
         private static bool TriggerEdge(bool valid,bool pressed,ref bool armed)
@@ -384,17 +452,6 @@ namespace AvatarExperiments
             hovered=value;
             if(hovered!=null)hovered.Image.color=Hover;
         }
-        private void ReadPinches()
-        {
-            hands.Clear();SubsystemManager.GetSubsystems(hands);
-            foreach(var provider in hands)if(provider.running)
-            {leftPinch=Pinched(provider.leftHand,leftPinch);rightPinch=Pinched(provider.rightHand,rightPinch);return;}
-            leftPinch=rightPinch=false;
-        }
-        private static bool Pinched(XRHand hand,bool held) => hand.isTracked &&
-            hand.GetJoint(XRHandJointID.ThumbTip).TryGetPose(out var thumb) &&
-            hand.GetJoint(XRHandJointID.IndexTip).TryGetPose(out var index) &&
-            Vector3.Distance(thumb.position,index.position)<(held?.04f:.025f);
         private static bool MenuPressed()
         {
             var right=InputDevices.GetDeviceAtXRNode(XRNode.RightHand);
@@ -408,8 +465,10 @@ namespace AvatarExperiments
         {SetOpen(false);shownForSession=false;if(input!=null)input.UiOwnsGestures=false;}
         private void OnDestroy()
         {
-            if(uiMaterial!=null)Destroy(uiMaterial);if(panel!=null)Destroy(panel.gameObject);
-            if(leftLaser!=null)Destroy(leftLaser.gameObject);if(rightLaser!=null)Destroy(rightLaser.gameObject);
+            if(uiMaterial!=null)Release(uiMaterial);if(panel!=null)Release(panel.gameObject);
+            if(leftLaser!=null)Release(leftLaser.gameObject);if(rightLaser!=null)Release(rightLaser.gameObject);
         }
+        private static void Release(UnityEngine.Object value)
+        {if(Application.isPlaying)Destroy(value);else DestroyImmediate(value);}
     }
 }

@@ -8,11 +8,15 @@ namespace AvatarExperiments
     /// <summary>Local avatar sizing only; never scales the tracking origin or camera.</summary>
     public sealed class AvatarCalibration : MonoBehaviour
     {
+        // Shared Kevin wrist reference from LiquidBodyNVidia/LiquidAvatarCalibration.
+        // Applied in tracked wrist-local axes, after the tracking-origin rotation.
+        public static readonly Vector3 DefaultLeftWrist = new(10,65,95);
+        public static readonly Vector3 DefaultRightWrist = new(180,100,80);
         [Serializable] private sealed class Settings
         {
             public float Scale = 1;
             public bool HeightCalibrated;
-            public Vector3 LeftWrist, RightWrist;
+            public Vector3 LeftWrist = DefaultLeftWrist, RightWrist = DefaultRightWrist;
             public float LeftArm = 1, RightArm = 1, LeftLeg = 1, RightLeg = 1;
         }
         public string Status { get; private set; } = "Stand upright before fitting height.";
@@ -20,6 +24,9 @@ namespace AvatarExperiments
         public bool HeightCalibrated => settings.HeightCalibrated;
         public float ReferenceEyeHeight { get; private set; }
         public float LastMeasuredEyeHeight { get; private set; }
+        // An embedding experience can supply the same tracked eye pose used by
+        // its camera. Coordinates are relative to the unscaled tracking origin.
+        public Func<Pose?> TrackedEyePose;
         public bool Busy => operation != 0;
         public Vector3 LeftWrist => settings.LeftWrist;
         public Vector3 RightWrist => settings.RightWrist;
@@ -38,9 +45,10 @@ namespace AvatarExperiments
         public float LimbLength(int index) => index >= 0 && index < 4 ? baselineLengths[index] * RelativeScale * LimbRatio(index) : 0;
         private float LimbRatio(int index) => index switch { 0 => settings.LeftArm, 1 => settings.RightArm, 2 => settings.LeftLeg, _ => settings.RightLeg };
 
-        public void Configure(AvatarRig avatarRig, GameObject avatarRoot, float floorY)
+        public void Configure(AvatarRig avatarRig, GameObject avatarRoot, float floorY, string profileId = null, bool restoreSaved = true)
         {
             rig = avatarRig; input = GetComponent<AvatarTrackingInput>(); avatar = avatarRoot.transform;
+            ApplyWrist();
             baselineScale = avatar.localScale; initialFloor = floorY;
             baselineRootFloorOffset = avatar.position.y - floorY;
             var animator = rig.AvatarAnimator;
@@ -58,14 +66,16 @@ namespace AvatarExperiments
             Vector3 eye = left != null && right != null ? (left.position + right.position) * .5f : rig.Head.position + avatar.up * .08f;
             ReferenceEyeHeight = eye.y - floorY;
             eyeToHead = Quaternion.Inverse(avatar.rotation) * (rig.Head.position - eye);
-            key = "AvatarExperiments.Calibration.v1." + animator.avatar.name;
-            loadSaved = PlayerPrefs.HasKey(key);
+            key = "AvatarExperiments.Calibration.v1." + (profileId ?? animator.avatar.name);
+            loadSaved = restoreSaved && PlayerPrefs.HasKey(key);
+            Debug.Log($"AVATAR_CALIBRATION_BASELINE: profile={profileId ?? animator.avatar.name} eyeHeight={ReferenceEyeHeight:F3} rootFloorOffset={baselineRootFloorOffset:F3} rootScale={baselineScale}", this);
         }
         private void Start()
         {
             if (!loadSaved) return;
             LoadSettings(key);
         }
+        public bool RestoreSaved() => LoadSettings(key);
         private bool LoadSettings(string sourceKey)
         {
             try
@@ -120,9 +130,33 @@ namespace AvatarExperiments
             operation = 0;
             if (samples < 8 || maximum - minimum > .045f)
             { Status = "Height was unstable. Stand still and retry."; return; }
-            LastMeasuredEyeHeight = sum / samples;
-            if (ApplyScale(LastMeasuredEyeHeight / ReferenceEyeHeight, true))
-                Status = $"Fitted eye height {LastMeasuredEyeHeight * 100:F1} cm; avatar x{RelativeScale:F3}.";
+            ApplyMeasuredEyeHeight(sum / samples);
+        }
+        public bool ApplyMeasuredEyeHeight(float height)
+        {
+            if (!float.IsFinite(height) || height < .75f || height > 2.3f)
+            { Status = "Standing eye height is outside 75-230 cm. Check floor setup."; return false; }
+            if (!ApplyScale(height / ReferenceEyeHeight, true)) return false;
+            LastMeasuredEyeHeight = height;
+            Status = $"Fitted eye height {height * 100:F1} cm; avatar x{RelativeScale:F3}.";
+            Debug.Log($"AVATAR_HEIGHT_FIT: measuredEye={height:F3} referenceEye={ReferenceEyeHeight:F3} scale={RelativeScale:F4}", this);
+            return true;
+        }
+        public bool TryTrackedEyePose(out Pose pose)
+        {
+            if (TrackedEyePose != null)
+            {
+                var supplied = TrackedEyePose(); pose = supplied ?? default;
+                return supplied.HasValue;
+            }
+            pose = default;
+            var device = InputDevices.GetDeviceAtXRNode(XRNode.Head);
+            if (!device.TryGetFeatureValue(CommonUsages.isTracked, out bool tracked) || !tracked) return false;
+            bool p = device.TryGetFeatureValue(CommonUsages.centerEyePosition, out Vector3 position);
+            bool q = device.TryGetFeatureValue(CommonUsages.centerEyeRotation, out Quaternion rotation);
+            if (!p) p = device.TryGetFeatureValue(CommonUsages.devicePosition, out position);
+            if (!q) q = device.TryGetFeatureValue(CommonUsages.deviceRotation, out rotation);
+            pose = new Pose(position, rotation); return p && q;
         }
         private bool TryEyeHeight(out float height)
         {
@@ -132,14 +166,11 @@ namespace AvatarExperiments
             foreach (var subsystem in xrInputs)
                 floor |= subsystem.running && subsystem.GetTrackingOriginMode() == TrackingOriginModeFlags.Floor;
             if (!floor) { Status = "Floor origin required. Set your VR floor / room setup first."; return false; }
-            var device = InputDevices.GetDeviceAtXRNode(XRNode.Head);
-            if (!device.TryGetFeatureValue(CommonUsages.isTracked, out bool tracked) || !tracked ||
-                !device.TryGetFeatureValue(CommonUsages.devicePosition, out var p) ||
-                !device.TryGetFeatureValue(CommonUsages.deviceRotation, out var q))
+            if (!TryTrackedEyePose(out var eye))
             { Status = "HMD tracking missing. Height not changed."; return false; }
-            if (Mathf.Abs((q * Vector3.forward).y) > .45f)
+            if (Mathf.Abs((eye.rotation * Vector3.forward).y) > .45f)
             { Status = "Look straight ahead, not down, then retry."; return false; }
-            height = p.y;
+            height = eye.position.y;
             if (!float.IsFinite(height) || height < .75f || height > 2.3f)
             { Status = "Standing eye height is outside 75-230 cm. Check floor setup."; return false; }
             return true;
@@ -209,7 +240,7 @@ namespace AvatarExperiments
             if (left) settings.LeftWrist = angles; else settings.RightWrist = angles;
             ApplyWrist();
         }
-        public void ResetWrists() { settings.LeftWrist = settings.RightWrist = Vector3.zero; ApplyWrist(); }
+        public void ResetWrists() { settings.LeftWrist = DefaultLeftWrist; settings.RightWrist = DefaultRightWrist; ApplyWrist(); }
         private void ApplyWrist() { input.LeftWristEuler = settings.LeftWrist; input.RightWristEuler = settings.RightWrist; }
         public void Save()
         {

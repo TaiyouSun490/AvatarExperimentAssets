@@ -40,6 +40,7 @@ namespace AvatarExperiments.FpsArms
         readonly Vector3[] positions = new Vector3[XRHandJointID.EndMarker.ToIndex()];
         readonly bool[] valid = new bool[XRHandJointID.EndMarker.ToIndex()];
         readonly TrackedJointSample leftSample=new TrackedJointSample(),rightSample=new TrackedJointSample();
+        Pose? leftRawWrist,rightRawWrist;
         XRHandSubsystem subsystem;
         bool floorOrigin;
         float lastUpdate, nextReport;
@@ -59,6 +60,7 @@ namespace AvatarExperiments.FpsArms
             LeftPinching=RightPinching=false;
             LeftUsesController=RightUsesController=false;
             leftSample.Clear();rightSample.Clear();
+            leftRawWrist=rightRawWrist=null;
         }
         void Update()
         {
@@ -81,7 +83,7 @@ namespace AvatarExperiments.FpsArms
             if (logTracking && Time.unscaledTime >= nextReport)
             {
                 nextReport = Time.unscaledTime+5;
-                Debug.Log($"HAND_FINGER_TRACKING subsystem={SubsystemRunning} head={HeadTracked} left={leftArm.tracked}/{LeftValidJoints} right={rightArm.tracked}/{RightValidJoints} controllers={LeftUsesController}/{RightUsesController}");
+                Debug.Log($"HAND_FINGER_TRACKING subsystem={SubsystemRunning} head={HeadTracked} left={leftArm.tracked}/{LeftValidJoints} right={rightArm.tracked}/{RightValidJoints} controllers={LeftUsesController}/{RightUsesController} providerHands={subsystem?.leftHand.isTracked}/{subsystem?.rightHand.isTracked} mode={inputMode} leftDevice={DescribeDevice(true)} rightDevice={DescribeDevice(false)}");
             }
         }
         void UpdateHead()
@@ -106,8 +108,8 @@ namespace AvatarExperiments.FpsArms
         int ReadHand(XRHand hand, TrackedArmAvatar arm, JointBinding[] bindings, bool updated)
         {
             var sample=arm.leftHand?leftSample:rightSample;sample.Clear();
-            if(TryApplyController(arm))return 0;
-            if(inputMode==InputMode.ControllersOnly){arm.SetTracking(false);return 0;}
+            // Read joints before choosing an input source. Some runtimes leave
+            // a controller device tracked while also providing bare-hand joints.
             Array.Clear(valid,0,valid.Length); int count=0;
             if (updated && hand.isTracked)
                 for (int i=0;i<positions.Length;i++)
@@ -117,11 +119,31 @@ namespace AvatarExperiments.FpsArms
                     { valid[i]=true;positions[i]=trackingSpace.TransformPoint(pose.position);count++; }
                 }
             sample.Capture(positions,valid,Time.unscaledTime);
-            bool applied=ApplyJoints(arm,bindings,positions,valid);
+            bool applied=inputMode!=InputMode.ControllersOnly&&ApplyJoints(arm,bindings,positions,valid);
+            Pose? rawWrist=null;
+            if(applied&&hand.GetJoint(XRHandJointID.Wrist).TryGetPose(out var measuredWrist))
+                rawWrist=new Pose(trackingSpace.TransformPoint(measuredWrist.position),trackingSpace.rotation*measuredWrist.rotation);
+            if(arm.leftHand)leftRawWrist=rawWrist;else rightRawWrist=rawWrist;
             bool pinch=applied && valid[XRHandJointID.ThumbTip.ToIndex()] && valid[XRHandJointID.IndexTip.ToIndex()] &&
                 Vector3.Distance(positions[XRHandJointID.ThumbTip.ToIndex()],positions[XRHandJointID.IndexTip.ToIndex()])<.025f;
             if(arm.leftHand)LeftPinching=pinch;else RightPinching=pinch;
+            if(applied)
+            {if(arm.leftHand)LeftUsesController=false;else RightUsesController=false;}
+            else if(!TryApplyController(arm))arm.SetTracking(false);
             return count;
+        }
+        public bool HasTrackedHand(bool left)
+        {
+            var wrist=left?leftRawWrist:rightRawWrist;
+            return HeadTracked&&inputMode!=InputMode.ControllersOnly&&wrist.HasValue&&
+                (left?leftSample:rightSample).TryGet(XRHandJointID.Wrist.ToIndex(),Time.unscaledTime,out _);
+        }
+        public static bool UseController(InputMode mode,bool handAvailable,bool controllerAvailable)=>
+            mode!=InputMode.HandsOnly&&controllerAvailable&&(mode==InputMode.ControllersOnly||!handAvailable);
+        static string DescribeDevice(bool left)
+        {
+            var device=InputDevices.GetDeviceAtXRNode(left?XRNode.LeftHand:XRNode.RightHand);
+            return device.isValid?$"{device.name}[{device.characteristics}]":"none";
         }
         public bool TryGetTrackedJoint(bool left,XRHandJointID joint,out Vector3 position)
         {
@@ -133,7 +155,7 @@ namespace AvatarExperiments.FpsArms
         {
             worldPose=default;trigger=grip=0;
             var device=InputDevices.GetDeviceAtXRNode(left?XRNode.LeftHand:XRNode.RightHand);
-            if(!HeadTracked || !device.isValid || (device.characteristics&InputDeviceCharacteristics.Controller)==0 ||
+            if(!HeadTracked || !UseController(inputMode,HasTrackedHand(left),device.isValid) || (device.characteristics&InputDeviceCharacteristics.Controller)==0 ||
                 (device.characteristics&InputDeviceCharacteristics.HandTracking)!=0 ||
                 !device.TryGetFeatureValue(CommonUsages.isTracked,out bool tracked) || !tracked ||
                 !device.TryGetFeatureValue(CommonUsages.devicePosition,out Vector3 p) ||
@@ -141,6 +163,11 @@ namespace AvatarExperiments.FpsArms
             worldPose=new Pose(trackingSpace.TransformPoint(p),trackingSpace.rotation*q);
             device.TryGetFeatureValue(CommonUsages.trigger,out trigger);device.TryGetFeatureValue(CommonUsages.grip,out grip);
             return true;
+        }
+        public bool TryGetTrackedWristPose(bool left,out Pose pose)
+        {
+            var sample=left?leftRawWrist:rightRawWrist;pose=sample??default;
+            return sample.HasValue&&TryGetTrackedJoint(left,XRHandJointID.Wrist,out _);
         }
         void UpdateControllers()
         {
@@ -150,6 +177,9 @@ namespace AvatarExperiments.FpsArms
         }
         void UpdateController(TrackedArmAvatar arm)
         {
+            // Keep both the measured wrist and fingers through before-render.
+            if(HasTrackedHand(arm.leftHand))
+            {if(arm.leftHand)LeftUsesController=false;else RightUsesController=false;return;}
             bool previously=arm.leftHand?LeftUsesController:RightUsesController;
             if(!TryApplyController(arm) && (previously || inputMode==InputMode.ControllersOnly))arm.SetTracking(false);
         }

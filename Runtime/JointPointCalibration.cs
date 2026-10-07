@@ -128,16 +128,18 @@ namespace AvatarExperiments
             }
             var go=GameObject.CreatePrimitive(PrimitiveType.Sphere);go.name=label;
             go.transform.localScale=Vector3.one*diameter;
-            var collider=go.GetComponent<Collider>();collider.enabled=false;Destroy(collider);
+            var collider=go.GetComponent<Collider>();collider.enabled=false;Release(collider);
             go.GetComponent<Renderer>().sharedMaterial=probeMaterial;
             return go;
         }
         private void ClearMarkers()
         {
             if(probe!=null)probe.SetActive(false);
-            for(int i=0;i<markers.Length;i++)if(markers[i]!=null){Destroy(markers[i]);markers[i]=null;}
+            for(int i=0;i<markers.Length;i++)if(markers[i]!=null){Release(markers[i]);markers[i]=null;}
         }
         private void OnDisable()=>Cancel();
-        private void OnDestroy(){ClearMarkers();if(probe!=null)Destroy(probe);if(probeMaterial!=null)Destroy(probeMaterial);}
+        private void OnDestroy(){ClearMarkers();if(probe!=null)Release(probe);if(probeMaterial!=null)Release(probeMaterial);}
+        private static void Release(UnityEngine.Object value)
+        {if(Application.isPlaying)Destroy(value);else DestroyImmediate(value);}
     }
 }

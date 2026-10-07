@@ -5,6 +5,9 @@
 LiquidBodyNVidia の Assets/LiquidAvatar の独自実装を元に再構成:
 VRメニュー、身体寸法・手首設定、XR Hands指リターゲット、FinalIK接続、
 XRカメラ、頭部の一人称非表示、URPワールド空間UIシェーダー。
+HandUiPointer / HandUiMenuHoldもLiquidHandUiPointerから移植し、共通メニューへ接続。
+LiquidAvatarCalibrationの手首基準（左10/65/95度、右180/100/80度）は、
+ユーザー指定で共通デフォルトに採用。測定済みの個人プロファイルはコピーしていません。
 鏡は独自のURP反射コード・シェーダーとUnityのQuadで構成し、
 元プロジェクトのフレーム形状・プレハブ・マテリアルはコピーしていません。
 AvatarRig / AvatarTrackingInput / AvatarExperimentSetup とEditor導入補助は

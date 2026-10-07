@@ -8,7 +8,9 @@ namespace AvatarExperiments
     public sealed class AvatarTrackingInput : MonoBehaviour
     {
         public bool UiOwnsGestures { get; set; }
-        public Vector3 HeadPositionOffset, LeftWristEuler, RightWristEuler;
+        public Vector3 HeadPositionOffset;
+        public Vector3 LeftWristEuler = AvatarCalibration.DefaultLeftWrist;
+        public Vector3 RightWristEuler = AvatarCalibration.DefaultRightWrist;
         private AvatarRig rig;
         private readonly List<XRHandSubsystem> hands=new();
         public void Configure(AvatarRig value) => rig=value;

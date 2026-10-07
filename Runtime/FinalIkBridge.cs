@@ -23,11 +23,24 @@ namespace AvatarExperiments
         private GameObject avatarRoot;
         private AvatarRig rig;
         private Component vrik;
+        private object externallyDrivenSolver;
         private float originalSolverScale = 1;
+        private object Solver => externallyDrivenSolver ?? GetField(vrik, "solver");
+
+        // Let an experiment keep ownership of solver timing (before mesh baking).
+        // This path never adds or enables a second VRIK component.
+        public void ConfigureExternalSolver(object solver, float baselineScale)
+        {
+            if (solver == null || !float.IsFinite(baselineScale) || baselineScale <= 0)
+                throw new ArgumentException("A solver and positive baseline scale are required.");
+            externallyDrivenSolver = solver;
+            originalSolverScale = baselineScale;
+            IsActive = true;
+        }
 
         public bool SetLimbLengths(float leftArm, float rightArm, float leftLeg, float rightLeg)
         {
-            var solver = GetField(vrik, "solver");
+            var solver = Solver;
             string[] limbs = { "leftArm", "rightArm", "leftLeg", "rightLeg" };
             float[] values = { leftArm, rightArm, leftLeg, rightLeg };
             for (int i = 0; i < 4; i++)
@@ -41,7 +54,7 @@ namespace AvatarExperiments
 
         public void RefreshAvatarScale(float relativeScale)
         {
-            var solver = GetField(vrik, "solver");
+            var solver = Solver;
             if (solver == null) return;
             SetField(solver, "scale", originalSolverScale * relativeScale);
             solver.GetType().GetMethod("Reset", PublicInstance)?.Invoke(solver, null);
