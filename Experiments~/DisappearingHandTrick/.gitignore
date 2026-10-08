@@ -1,0 +1,13 @@
+/Library/
+/Temp/
+/Obj/
+/Logs/
+/UserSettings/
+/Builds/
+/.vs/
+/*.csproj
+/*.sln
+/Assets/ThirdParty/
+/Assets/ThirdParty.meta
+/Documentation/Previews/
+*.user

@@ -1,0 +1,135 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b3fc0a90ca0249a5ac1ea404efe7f382, type: 3}
+  m_Name: FPSArmProfile
+  m_EditorClassIdentifier: AvatarExperiments.Runtime::AvatarExperiments.FpsArms.FpsArmModelProfile
+  modelPrefab: {fileID: 100010, guid: 424b894ac83fdc04485f7ae61406c076, type: 3}
+  openPose: {fileID: 110800012, guid: 424b894ac83fdc04485f7ae61406c076, type: 3}
+  closedPose: {fileID: 110800006, guid: 424b894ac83fdc04485f7ae61406c076, type: 3}
+  upperArm: amrature_fp_hand/shoulder/arm_up_deform
+  elbow: amrature_fp_hand/shoulder/arm_up_deform/arm_down_deform/forearm_up_deform
+  wrist: amrature_fp_hand/shoulder/arm_up_deform/arm_down_deform/forearm_up_deform/forearm_
+    down_deform/hand_joint
+  indexBase: amrature_fp_hand/shoulder/arm_up_deform/arm_down_deform/forearm_up_deform/forearm_
+    down_deform/hand_joint/index_bone/index_prox
+  middleBase: amrature_fp_hand/shoulder/arm_up_deform/arm_down_deform/forearm_up_deform/forearm_
+    down_deform/hand_joint/middle_bone/middle_prox
+  littleBase: amrature_fp_hand/shoulder/arm_up_deform/arm_down_deform/forearm_up_deform/forearm_
+    down_deform/hand_joint/little_bone/little_prox
+  rendererPath: 
+  mirrorLeft: 1
+  fingers:
+  - bone: amrature_fp_hand/shoulder/arm_up_deform/arm_down_deform/forearm_up_deform/forearm_
+      down_deform/hand_joint/thumb_prox
+    tip: amrature_fp_hand/shoulder/arm_up_deform/arm_down_deform/forearm_up_deform/forearm_
+      down_deform/hand_joint/thumb_prox/thumb_inter
+    joint: 3
+    nextJoint: 4
+    controllerGroup: 0
+  - bone: amrature_fp_hand/shoulder/arm_up_deform/arm_down_deform/forearm_up_deform/forearm_
+      down_deform/hand_joint/thumb_prox/thumb_inter
+    tip: amrature_fp_hand/shoulder/arm_up_deform/arm_down_deform/forearm_up_deform/forearm_
+      down_deform/hand_joint/thumb_prox/thumb_inter/thumb_dist
+    joint: 4
+    nextJoint: 5
+    controllerGroup: 0
+  - bone: amrature_fp_hand/shoulder/arm_up_deform/arm_down_deform/forearm_up_deform/forearm_
+      down_deform/hand_joint/thumb_prox/thumb_inter/thumb_dist
+    tip: amrature_fp_hand/shoulder/arm_up_deform/arm_down_deform/forearm_up_deform/forearm_
+      down_deform/hand_joint/thumb_prox/thumb_inter/thumb_dist/thumb_dist_end
+    joint: 5
+    nextJoint: 6
+    controllerGroup: 0
+  - bone: amrature_fp_hand/shoulder/arm_up_deform/arm_down_deform/forearm_up_deform/forearm_
+      down_deform/hand_joint/index_bone/index_prox
+    tip: amrature_fp_hand/shoulder/arm_up_deform/arm_down_deform/forearm_up_deform/forearm_
+      down_deform/hand_joint/index_bone/index_prox/index_inter
+    joint: 8
+    nextJoint: 9
+    controllerGroup: 1
+  - bone: amrature_fp_hand/shoulder/arm_up_deform/arm_down_deform/forearm_up_deform/forearm_
+      down_deform/hand_joint/index_bone/index_prox/index_inter
+    tip: amrature_fp_hand/shoulder/arm_up_deform/arm_down_deform/forearm_up_deform/forearm_
+      down_deform/hand_joint/index_bone/index_prox/index_inter/index_dist
+    joint: 9
+    nextJoint: 10
+    controllerGroup: 1
+  - bone: amrature_fp_hand/shoulder/arm_up_deform/arm_down_deform/forearm_up_deform/forearm_
+      down_deform/hand_joint/index_bone/index_prox/index_inter/index_dist
+    tip: amrature_fp_hand/shoulder/arm_up_deform/arm_down_deform/forearm_up_deform/forearm_
+      down_deform/hand_joint/index_bone/index_prox/index_inter/index_dist/index_dist_end
+    joint: 10
+    nextJoint: 11
+    controllerGroup: 1
+  - bone: amrature_fp_hand/shoulder/arm_up_deform/arm_down_deform/forearm_up_deform/forearm_
+      down_deform/hand_joint/middle_bone/middle_prox
+    tip: amrature_fp_hand/shoulder/arm_up_deform/arm_down_deform/forearm_up_deform/forearm_
+      down_deform/hand_joint/middle_bone/middle_prox/middle_inter
+    joint: 13
+    nextJoint: 14
+    controllerGroup: 2
+  - bone: amrature_fp_hand/shoulder/arm_up_deform/arm_down_deform/forearm_up_deform/forearm_
+      down_deform/hand_joint/middle_bone/middle_prox/middle_inter
+    tip: amrature_fp_hand/shoulder/arm_up_deform/arm_down_deform/forearm_up_deform/forearm_
+      down_deform/hand_joint/middle_bone/middle_prox/middle_inter/middle_dist
+    joint: 14
+    nextJoint: 15
+    controllerGroup: 2
+  - bone: amrature_fp_hand/shoulder/arm_up_deform/arm_down_deform/forearm_up_deform/forearm_
+      down_deform/hand_joint/middle_bone/middle_prox/middle_inter/middle_dist
+    tip: amrature_fp_hand/shoulder/arm_up_deform/arm_down_deform/forearm_up_deform/forearm_
+      down_deform/hand_joint/middle_bone/middle_prox/middle_inter/middle_dist/middle_dist_end
+    joint: 15
+    nextJoint: 16
+    controllerGroup: 2
+  - bone: amrature_fp_hand/shoulder/arm_up_deform/arm_down_deform/forearm_up_deform/forearm_
+      down_deform/hand_joint/ring_bone/ring_prox
+    tip: amrature_fp_hand/shoulder/arm_up_deform/arm_down_deform/forearm_up_deform/forearm_
+      down_deform/hand_joint/ring_bone/ring_prox/ring_inter
+    joint: 18
+    nextJoint: 19
+    controllerGroup: 2
+  - bone: amrature_fp_hand/shoulder/arm_up_deform/arm_down_deform/forearm_up_deform/forearm_
+      down_deform/hand_joint/ring_bone/ring_prox/ring_inter
+    tip: amrature_fp_hand/shoulder/arm_up_deform/arm_down_deform/forearm_up_deform/forearm_
+      down_deform/hand_joint/ring_bone/ring_prox/ring_inter/ring_dist
+    joint: 19
+    nextJoint: 20
+    controllerGroup: 2
+  - bone: amrature_fp_hand/shoulder/arm_up_deform/arm_down_deform/forearm_up_deform/forearm_
+      down_deform/hand_joint/ring_bone/ring_prox/ring_inter/ring_dist
+    tip: amrature_fp_hand/shoulder/arm_up_deform/arm_down_deform/forearm_up_deform/forearm_
+      down_deform/hand_joint/ring_bone/ring_prox/ring_inter/ring_dist/ring_dist_end
+    joint: 20
+    nextJoint: 21
+    controllerGroup: 2
+  - bone: amrature_fp_hand/shoulder/arm_up_deform/arm_down_deform/forearm_up_deform/forearm_
+      down_deform/hand_joint/little_bone/little_prox
+    tip: amrature_fp_hand/shoulder/arm_up_deform/arm_down_deform/forearm_up_deform/forearm_
+      down_deform/hand_joint/little_bone/little_prox/little_inter
+    joint: 23
+    nextJoint: 24
+    controllerGroup: 2
+  - bone: amrature_fp_hand/shoulder/arm_up_deform/arm_down_deform/forearm_up_deform/forearm_
+      down_deform/hand_joint/little_bone/little_prox/little_inter
+    tip: amrature_fp_hand/shoulder/arm_up_deform/arm_down_deform/forearm_up_deform/forearm_
+      down_deform/hand_joint/little_bone/little_prox/little_inter/little_dist
+    joint: 24
+    nextJoint: 25
+    controllerGroup: 2
+  - bone: amrature_fp_hand/shoulder/arm_up_deform/arm_down_deform/forearm_up_deform/forearm_
+      down_deform/hand_joint/little_bone/little_prox/little_inter/little_dist
+    tip: amrature_fp_hand/shoulder/arm_up_deform/arm_down_deform/forearm_up_deform/forearm_
+      down_deform/hand_joint/little_bone/little_prox/little_inter/little_dist/little_dist_end
+    joint: 25
+    nextJoint: 26
+    controllerGroup: 2

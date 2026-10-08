@@ -4,6 +4,25 @@ Unity 6 / Windows PCVR 用のアバター実験共通パッケージです。
 LiquidBodyNVidia の独自実装からトラッキング・キャリブレーション部分を切り出しました。
 **第三者モデル、FinalIKソース、Meta SDKサンプル、学習済みモデルは同梱しません。**
 
+## 研究プロジェクト: Disappearing Hand Trick
+
+`Diappearing` ブランチには、FPSArm を使った Disappearing Hand Trick の Unity 研究プロジェクトを
+[Experiments~/DisappearingHandTrick](Experiments~/DisappearingHandTrick/README.md) に保存しています。
+両手の表示位置を徐々にずらす、片手を隠す、反対の手で探索する、表示を戻す、という試行と
+対照条件・左右切替・CSV 記録を含みます。共通ライブラリ化はせず、今回の実験実装を一式保持しています。
+
+```powershell
+git clone --branch Diappearing https://github.com/TaiyouSun490/AvatarExperimentAssets.git
+cd AvatarExperimentAssets/Experiments~/DisappearingHandTrick
+./Tools/Import-FPSArm.ps1 -Source 'C:/path/to/FPSHand'
+./Tools/Build.ps1
+```
+
+Unity Hub では `Experiments~/DisappearingHandTrick` をプロジェクトとして開きます。
+このプロジェクトは同じリポジトリのルートにある共通パッケージを相対パスで参照します。
+`Experiments~` は UPM の通常インポート対象外なので、パッケージ利用先へ実験シーンやコードを自動追加しません。
+モデル・ビルド・Library・実験ログは含みません。操作と検証範囲はプロジェクトの README を参照してください。
+
 ## 導入
 
 ### 一人称の腕だけを使う実験

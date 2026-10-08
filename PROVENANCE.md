@@ -35,3 +35,14 @@ They use the repository's MIT license. No third-party model, material, texture,
 animation clip, paid IK implementation or participant calibration is included.
 The fp_male_hand profile helper records paths/references to a user's separately
 imported model; it does not distribute that model or its animations.
+
+## Disappearing Hand Trick research project (Diappearing branch)
+
+`Experiments~/DisappearingHandTrick` preserves the project-authored Unity research
+implementation, generated experiment scene, project settings, build tools and
+documentation. It depends on the package at this repository's root. This research
+directory is outside the UPM import set; it does not add an experiment API to Runtime.
+The generated scene and model profile reference a separately imported FPSHand,
+but no third-party mesh, texture, animation, original vendor scene, executable,
+participant log or calibration data is included. This is a research-project archive,
+not a new bundle of third-party assets. See its Documentation/ThirdParty.md for provenance.
