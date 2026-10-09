@@ -1,0 +1,6 @@
+{
+  "name": "AvatarExperiments.Perspectives",
+  "rootNamespace": "AvatarExperiments.Perspectives",
+  "references": ["Unity.ugui"],
+  "autoReferenced": true
+}

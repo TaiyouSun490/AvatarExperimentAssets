@@ -1,0 +1,5 @@
+{
+  "name": "AvatarExperiments.Perspectives.Editor",
+  "references": ["AvatarExperiments.Perspectives", "Unity.ugui"],
+  "includePlatforms": ["Editor"]
+}

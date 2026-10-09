@@ -15,6 +15,7 @@ namespace AvatarExperiments
         public bool HideHead = true;
         [Tooltip("Normally only XR hides the head; desktop avatar inspection stays unchanged.")]
         public bool HideOutsideVR;
+        public Perspectives.PerspectiveController Perspective;
         public Camera FirstPersonCamera { get; private set; }
         public int HeadRendererCount => parts.Count;
         public int HiddenRenderCount { get; private set; }
@@ -111,6 +112,7 @@ namespace AvatarExperiments
         }
 
         private bool ShouldHide(Camera camera) => HideHead && camera == FirstPersonCamera &&
+            (Perspective == null || !Perspective.Initialized || Perspective.CurrentOffset.sqrMagnitude < .000001f) &&
             (HideOutsideVR || camera.stereoEnabled || (session != null && session.Running));
 
         private void BeginCamera(ScriptableRenderContext context, Camera camera)

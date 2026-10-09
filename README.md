@@ -6,6 +6,21 @@ LiquidBodyNVidia の独自実装からトラッキング・キャリブレーシ
 
 ## 導入
 
+### 一人称・第三人称の比較
+
+`AvatarExperiments.Perspectives` に、トラッキング方式に依存しない視点モジュールを追加しました。
+後方1.2 m、側方部分重複（個別較正）、側方0.8 m、高さ追加の探索条件を設定ファイルで分け、
+固定視点と一人称↔第三人称の往復手順を独立に選べます。
+身体用原点と観察者用原点を分離し、頭部追跡を保ったまま暗転で視点を切り替えます。
+Movement SDK、OpenXR＋IK、外部フルボディトラッキングはホスト側で接続します。
+Movement SDKや特定のIKソルバーを視点モジュールの依存に追加していません。
+
+導入は `Tools > Avatar Experiments > Perspectives > Create observer setup`。
+既存の `AvatarExperimentSetup` では生成したControllerを `Perspective` に割り当てます。
+参加者用UI、追跡品質、実験ログの接続、文献に基づく値と探索的な値の違いは
+[Documentation~/Perspectives.md](Documentation~/Perspectives.md) を参照してください。
+モジュールの自動確認と、Quest／FBTの実機確認は区別しています。
+
 ### 一人称の腕だけを使う実験
 
 `AvatarExperiments.FpsArms`に、MeltingHandIllusionから切り出したFPS Armモジュールを追加しました。

@@ -19,13 +19,17 @@ namespace AvatarExperiments
         private Vector3 desktopPosition;
         private Quaternion desktopRotation;
         private bool knownState;
+        private Transform observerOrigin;
+        /// <summary>Rendering origin only. AvatarRig.TrackingOrigin always remains the physical/body frame.</summary>
+        public Transform CameraOrigin => observerOrigin != null ? observerOrigin : rig?.TrackingOrigin;
         public bool Running { get; private set; }
         public bool Retrying { get; private set; }
         public string Status { get; private set; } = "XR: checking";
 
-        public void Configure(AvatarRig avatarRig, Camera camera)
+        public void Configure(AvatarRig avatarRig, Camera camera, Transform renderingOrigin = null)
         {
             rig = avatarRig;
+            observerOrigin = renderingOrigin;
             // Only the explicitly assigned camera is controlled.
             if (camera != null)
             {
@@ -59,7 +63,7 @@ namespace AvatarExperiments
                     if (input.running && (input.GetSupportedTrackingOriginModes() & TrackingOriginModeFlags.Floor) != 0)
                         input.TrySetTrackingOriginMode(TrackingOriginModeFlags.Floor);
                 if (ownedCamera != null && rig != null)
-                    ownedCamera.transform.SetParent(rig.TrackingOrigin, false);
+                    ownedCamera.transform.SetParent(CameraOrigin, false);
             }
             else if (ownedCamera != null)
             {

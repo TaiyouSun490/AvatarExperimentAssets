@@ -34,6 +34,8 @@ namespace AvatarExperiments
         private XrSession session;
         private Camera view;
         private Transform trackingOrigin;
+        private Transform renderingOrigin;
+        private Transform UiOrigin => renderingOrigin != null ? renderingOrigin : trackingOrigin;
         private RectTransform panel, cursor;
         private GameObject bodyPage, wristPage, fingerPage, limbPage;
         private Text status, wristValues, fingerStatus, limbStatus;
@@ -62,10 +64,11 @@ namespace AvatarExperiments
         private static readonly Color Normal = new(.08f,.18f,.23f,1);
         private static readonly Color Hover = new(.03f,.5f,.62f,1);
 
-        public void Configure(AvatarRig rig, Camera camera)
+        public void Configure(AvatarRig rig, Camera camera, Transform observerOrigin = null)
         {
             view = camera;
             trackingOrigin = rig.TrackingOrigin;
+            renderingOrigin = observerOrigin;
             calibration = GetComponent<AvatarCalibration>();
             input = GetComponent<AvatarTrackingInput>(); session = GetComponent<XrSession>();
             fingers = GetComponent<XRHandHumanoidFingerDriver>();
@@ -213,9 +216,9 @@ namespace AvatarExperiments
                 // World-locked after opening: the menu does not stick to the user's face.
                 Vector3 eye=view.transform.position, direction=view.transform.forward;
                 var device=InputDevices.GetDeviceAtXRNode(XRNode.Head);
-                if(trackingOrigin!=null && device.TryGetFeatureValue(CommonUsages.isTracked,out bool tracked) && tracked &&
+                if(UiOrigin!=null && device.TryGetFeatureValue(CommonUsages.isTracked,out bool tracked) && tracked &&
                     device.TryGetFeatureValue(CommonUsages.devicePosition,out var p) && device.TryGetFeatureValue(CommonUsages.deviceRotation,out var q))
-                {eye=trackingOrigin.TransformPoint(p);direction=trackingOrigin.rotation*q*Vector3.forward;}
+                {eye=UiOrigin.TransformPoint(p);direction=UiOrigin.rotation*q*Vector3.forward;}
                 Vector3 forward=Vector3.ProjectOnPlane(direction,Vector3.up).normalized;
                 if(forward.sqrMagnitude<.5f)forward=Vector3.forward;
                 panel.SetPositionAndRotation(eye+forward*1.25f-Vector3.up*.06f,Quaternion.LookRotation(forward,Vector3.up));
@@ -319,7 +322,7 @@ namespace AvatarExperiments
                 valid=pointer.Step(handAvailable,knuckle,direction,ratio,Time.unscaledDeltaTime,out var local,out pressed);
                 if(valid)
                 {
-                    valid=TryWorldRay(local.origin,Quaternion.LookRotation(local.direction),trackingOrigin,out ray);
+                    valid=TryWorldRay(local.origin,Quaternion.LookRotation(local.direction),UiOrigin,out ray);
                     if(valid)source=PointerSource.Hand;
                 }
             }
@@ -367,7 +370,7 @@ namespace AvatarExperiments
                 if(device.TryGetFeatureValue(CommonUsages.trackingState,out InputTrackingState flags) &&
                     (flags&(InputTrackingState.Position|InputTrackingState.Rotation))!=(InputTrackingState.Position|InputTrackingState.Rotation))return false;
             }
-            if(!TryWorldRay(p,q,trackingOrigin,out ray))return false;
+            if(!TryWorldRay(p,q,UiOrigin,out ray))return false;
             pressed=device.TryGetFeatureValue(CommonUsages.triggerButton,out bool button)?button:
                 device.TryGetFeatureValue(CommonUsages.trigger,out float trigger)&&trigger>.75f;
             return true;

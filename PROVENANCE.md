@@ -35,3 +35,13 @@ They use the repository's MIT license. No third-party model, material, texture,
 animation clip, paid IK implementation or participant calibration is included.
 The fp_male_hand profile helper records paths/references to a user's separately
 imported model; it does not distribute that model or its animations.
+
+## Perspective module
+
+Runtime/Perspectives and Editor/Perspectives are original implementations of
+observer-frame offsets, fade transitions, configurable protocols and pose-space
+conversion. Research publications are cited for experimental geometry, not used
+as copied source code. No participant data, Movement SDK code, FBT driver,
+researcher avatar, publication figure or pretrained model is included.
+The optional integration in the existing setup separates rendering from body
+tracking while preserving the default first-person configuration.

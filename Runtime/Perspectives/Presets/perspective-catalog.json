@@ -1,0 +1,40 @@
+{
+  "schema_version": "1.0.0",
+  "fade_out_seconds": 0.3,
+  "fade_in_seconds": 0.3,
+  "profiles": [
+    {"id":"first_person", "label":"一人称", "offset_m":{"x":0,"y":0,"z":0}, "evidence":"baseline"},
+    {"id":"rear_120", "label":"後方 1.2 m", "offset_m":{"x":0,"y":0,"z":-1.2}, "evidence":"10.1371/journal.pone.0190109; distance used, not optimized"},
+    {"id":"partial_overlap", "label":"側方・部分重複（較正必須）", "offset_m":{"x":0.25,"y":0,"z":0}, "requires_overlap_calibration":true, "evidence":"10.3389/fnhum.2014.00693; participant-specific shift, mean 0.25 m"},
+    {"id":"lateral_080", "label":"側方 0.8 m", "offset_m":{"x":0.8,"y":0,"z":0}, "evidence":"10.3389/fnhum.2014.00693; non-overlap geometry must be checked"},
+    {"id":"rear_elevated", "label":"後方 1.2 m・上方 0.3 m（探索）", "offset_m":{"x":0,"y":0.3,"z":-1.2}, "exploratory":true, "evidence":"engineering hypothesis; no optimal height evidence"}
+  ],
+  "protocols": [
+    {"id":"fixed_first", "label":"一人称対照", "steps":[
+      {"profile_id":"first_person","minimum_dwell_seconds":20,"instruction":"両手・肩の動きと身体の対応を確かめます。"},
+      {"profile_id":"first_person","minimum_dwell_seconds":60,"instruction":"同じ姿勢で身体の対応を確かめます。"}
+    ]},
+    {"id":"fixed_rear", "label":"後方固定・基準", "steps":[
+      {"profile_id":"first_person","minimum_dwell_seconds":20,"instruction":"両手・肩の動きと身体の対応を確かめます。"},
+      {"profile_id":"rear_120","minimum_dwell_seconds":60,"instruction":"見えている身体と動きの対応を確かめます。"}
+    ]},
+    {"id":"guided_alternation", "label":"一人称と後方の往復・優先候補", "steps":[
+      {"profile_id":"first_person","minimum_dwell_seconds":20,"instruction":"両手・肩の動きと身体の対応を確かめます。"},
+      {"profile_id":"rear_120","minimum_dwell_seconds":20,"instruction":"見えている身体と動きの対応を確かめます。"},
+      {"profile_id":"first_person","minimum_dwell_seconds":20,"instruction":"戻った位置で身体の対応を確かめます。"},
+      {"profile_id":"rear_120","minimum_dwell_seconds":20,"instruction":"見えている身体と動きの対応を確かめます。"}
+    ]},
+    {"id":"fixed_partial", "label":"部分重複・所有感比較", "steps":[
+      {"profile_id":"first_person","minimum_dwell_seconds":20,"instruction":"両手・肩の動きと身体の対応を確かめます。"},
+      {"profile_id":"partial_overlap","minimum_dwell_seconds":60,"instruction":"見えている身体と動きの対応を確かめます。"}
+    ]},
+    {"id":"fixed_lateral", "label":"側方分離・自己位置比較", "steps":[
+      {"profile_id":"first_person","minimum_dwell_seconds":20,"instruction":"両手・肩の動きと身体の対応を確かめます。"},
+      {"profile_id":"lateral_080","minimum_dwell_seconds":60,"instruction":"見えている身体と動きの対応を確かめます。"}
+    ]},
+    {"id":"fixed_elevated", "label":"高さ追加・探索", "steps":[
+      {"profile_id":"first_person","minimum_dwell_seconds":20,"instruction":"両手・肩の動きと身体の対応を確かめます。"},
+      {"profile_id":"rear_elevated","minimum_dwell_seconds":60,"instruction":"見えている身体と動きの対応を確かめます。"}
+    ]}
+  ]
+}

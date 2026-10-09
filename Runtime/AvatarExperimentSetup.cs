@@ -9,6 +9,10 @@ namespace AvatarExperiments
         public Animator Avatar;
         public Transform TrackingOrigin;
         public Camera XrCamera;
+        [Tooltip("Optional rendering-only origin for third person. Keep TrackingOrigin fixed for body targets. Camera should already be under this branch.")]
+        public Transform ObserverOrigin;
+        [Tooltip("Optional perspective module; observer, head visibility and UI use its rendering frame.")]
+        public Perspectives.PerspectiveController Perspective;
         public bool EnableFirstPersonHeadHiding;
         public bool DesktopMenuPreview;
         private void Awake()
@@ -23,10 +27,17 @@ namespace AvatarExperiments
             var fingers=gameObject.AddComponent<XRHandHumanoidFingerDriver>();
             fingers.Configure(Avatar,TrackingOrigin);
             gameObject.AddComponent<FinalIkBridge>().Configure(Avatar.gameObject,rig);
-            var session=gameObject.AddComponent<XrSession>();session.Configure(rig,XrCamera);
+            var renderingOrigin=Perspective!=null?Perspective.observerRoot:ObserverOrigin;
+            var session=gameObject.AddComponent<XrSession>();session.Configure(rig,XrCamera,renderingOrigin);
             if(EnableFirstPersonHeadHiding)
-                gameObject.AddComponent<FirstPersonHeadVisibility>().Configure(Avatar,XrCamera,session);
-            var menu=gameObject.AddComponent<VrCalibrationMenu>();menu.DesktopPreview=DesktopMenuPreview;menu.Configure(rig,XrCamera);
+            {
+                var visibility=gameObject.AddComponent<FirstPersonHeadVisibility>();
+                visibility.Configure(Avatar,XrCamera,session);visibility.Perspective=Perspective;
+            }
+            if(Perspective!=null)
+                calibration.CanResizeOverride=()=>!Perspective.Initialized ||
+                    (!Perspective.TrialActive&&!Perspective.IsTransitioning&&Perspective.CurrentOffset.sqrMagnitude<.000001f);
+            var menu=gameObject.AddComponent<VrCalibrationMenu>();menu.DesktopPreview=DesktopMenuPreview;menu.Configure(rig,XrCamera,renderingOrigin);
         }
     }
 }
