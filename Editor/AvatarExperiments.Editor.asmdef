@@ -1,5 +1,5 @@
 {
   "name": "AvatarExperiments.Editor",
-  "references": ["AvatarExperiments.Runtime", "Unity.XR.Hands"],
+  "references": ["AvatarExperiments.Runtime", "Unity.XR.Hands", "Unity.RenderPipelines.Universal.Runtime"],
   "includePlatforms": ["Editor"]
 }

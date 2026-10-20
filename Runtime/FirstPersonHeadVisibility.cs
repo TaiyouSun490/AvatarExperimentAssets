@@ -34,6 +34,7 @@ namespace AvatarExperiments
         private readonly List<Part> parts = new();
         private readonly List<Frame> frames = new(4);
         private readonly Dictionary<Material, Material> shadowMaterials = new();
+        private readonly HashSet<Camera> additionalFirstPersonCameras = new();
         private XrSession session;
         private bool hidden;
 
@@ -110,8 +111,15 @@ namespace AvatarExperiments
             shadowMaterials.Clear();
         }
 
-        private bool ShouldHide(Camera camera) => HideHead && camera == FirstPersonCamera &&
-            (HideOutsideVR || camera.stereoEnabled || (session != null && session.Running));
+        /// <summary>A mono participant preview also looks from inside the avatar's head.</summary>
+        public void AddFirstPersonCamera(Camera camera)
+        { if (camera != null) additionalFirstPersonCameras.Add(camera); }
+        public void RemoveFirstPersonCamera(Camera camera)
+        { if (camera != null) additionalFirstPersonCameras.Remove(camera); }
+
+        private bool ShouldHide(Camera camera) => HideHead &&
+            ((camera == FirstPersonCamera && (HideOutsideVR || camera.stereoEnabled || (session != null && session.Running))) ||
+             additionalFirstPersonCameras.Contains(camera));
 
         private void BeginCamera(ScriptableRenderContext context, Camera camera)
         {
