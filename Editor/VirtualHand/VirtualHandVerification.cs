@@ -125,6 +125,7 @@ namespace AvatarExperiments.VirtualHand.Editor
             Check(e.keyboardControls&&e.controllerControls,"Completed study restores the previous standalone controls");
             e.ResetTrial();
             VirtualHandReviewVerification.Run(e,Check);
+            VirtualHandSpectatorVerification.Run(e,Check);
         }
     }
 }

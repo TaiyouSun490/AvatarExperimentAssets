@@ -26,6 +26,18 @@ namespace AvatarExperiments.VirtualHand.Editor
             scroll=EditorGUILayout.BeginScrollView(scroll);
             EditorGUILayout.LabelField("Virtual hand experiment",EditorStyles.boldLabel);
             EditorGUILayout.HelpBox(experiment.desktopPreview?"PC simulation — exported results are marked as simulated.":"VR study — operator panel is separate from participant prompts.",MessageType.Info);
+            var desktopView=experiment.GetComponentInChildren<TabletopDesktopSpectator>(true);
+            if(desktopView&&desktopView.spectator)
+            {
+                EditorGUILayout.LabelField("PC spectator — HMD stays first person",EditorStyles.boldLabel);
+                var viewData=new SerializedObject(desktopView);viewData.Update();
+                EditorGUILayout.PropertyField(viewData.FindProperty("showDesktopView"),new GUIContent("Show PC spectator"));
+                viewData.ApplyModifiedProperties();
+                var cameras=new SerializedObject(desktopView.spectator);cameras.Update();
+                foreach(var name in new[]{"Layout","DetailView","ShowControls"})EditorGUILayout.PropertyField(cameras.FindProperty(name));
+                cameras.ApplyModifiedProperties();
+                EditorGUILayout.HelpBox(desktopView.MeasurementHidden?"Measurement: spectator is temporarily hidden.":"F2: layout / F3: close-up / right drag: orbit / middle drag: pan / wheel: zoom / Home: reset / F4: controls",MessageType.None);
+            }
             using(new EditorGUI.DisabledScope(study.Active||experiment.Running))
             {
                 var data=new SerializedObject(experiment);data.Update();
