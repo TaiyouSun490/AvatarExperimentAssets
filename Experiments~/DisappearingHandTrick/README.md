@@ -1,5 +1,10 @@
 # Disappearing Hand Trick 研究プロジェクト — FPS Arms / PCVR
 
+> `codex/tendon-vibration-dht` ブランチでは、このプロジェクトを腱振動・運動錯覚版の出発点として保持しています。
+> 現時点の動作は以下の元の DHT 試作のままです。刺激装置の制御と停止後の回復測定は未実装です。
+> 分岐の目的と関連研究は [回復測定の研究メモ](../../Documentation~/TendonVibrationRecovery.md) を参照してください。
+> この分岐を取得する場合は、下記 clone コマンドのブランチを `codex/tendon-vibration-dht` に変更してください。
+
 AvatarExperimentAssets の FPS Arm モジュールを使った、Windows PCVR 用の Disappearing Hand Trick 試作です。
 Unity **6000.5.9f1**、URP **17.5.0**、OpenXR **1.17.1**、XR Hands **1.8.1**。
 

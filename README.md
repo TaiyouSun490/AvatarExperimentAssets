@@ -1,5 +1,17 @@
 # Avatar Experiment Assets
 
+## 腱振動・運動錯覚版の研究ブランチ
+
+`codex/tendon-vibration-dht` は `Diappearing` の `9ffbce3` から分岐した研究用ブランチです。
+Disappearing Hand Trick の位置ずれを、腱振動刺激とバーチャルハンドの提示によって作り、
+振動を停止した後に手の位置・姿勢感覚がどのように回復するかを調べることを目的にしています。
+元の `Diappearing` ブランチは保持しています。
+
+現段階は分岐と研究設計の整理までです。下記 Unity プロジェクトは元の DHT 試作のままであり、
+腱振動装置の制御や振動停止後の回復測定はまだ実装していません。
+既存の表示復帰アニメーションを、知覚の回復測定として扱わないでください。
+関連研究、測定指標、実装時の変更点は [腱振動停止後の回復に関する研究メモ](Documentation~/TendonVibrationRecovery.md) を参照してください。
+
 Unity 6 / Windows PCVR 用のアバター実験共通パッケージです。
 LiquidBodyNVidia の独自実装からトラッキング・キャリブレーション部分を切り出しました。
 **第三者モデル、FinalIKソース、Meta SDKサンプル、学習済みモデルは同梱しません。**
