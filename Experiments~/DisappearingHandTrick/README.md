@@ -1,5 +1,9 @@
 # Disappearing Hand Trick 研究プロジェクト — FPS Arms / PCVR
 
+> `codex/dht-look-away` では、通常版を残して **HMD の視野外に両手が出た時だけ位置を変更する派生版** を追加しています。
+> [視野外変更版の操作・原著との違い](Documentation/LookAwayDHT.md) を参照してください。
+> 通常版の秒数・片手12cm・固定リングは VR 試作値であり、原著の厳密再現ではありません。
+
 > `codex/tendon-vibration-dht` ブランチには、腱振動・運動錯覚版の `TendonHandVR` シーンを追加しています。
 > **腱振動版を使う場合は [専用の導入・操作手順](Documentation/TendonHand.md) を参照してください。**
 > 以下は保持している元の DHT シーンの手順です。

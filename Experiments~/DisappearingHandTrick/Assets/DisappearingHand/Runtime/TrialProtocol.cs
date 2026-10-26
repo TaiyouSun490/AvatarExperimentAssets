@@ -4,12 +4,19 @@ using UnityEngine;
 namespace DisappearingHand
 {
     public enum TrialPhase { Ready, Baseline, Drift, Hold, Search, Reveal, Complete, Aborted }
+    public enum DriftPresentation { Continuous, LookAwaySteps }
 
     [Serializable]
     public sealed class TrialSettings
     {
         public bool targetLeft;
         public bool controlCondition;
+        public DriftPresentation presentation;
+        public float lookAwayStepMetres = .01f;
+        public float lookAwayDwellSeconds = .25f;
+        public float lookBackDwellSeconds = .25f;
+        public float lookAwayTimeoutSeconds = 180;
+        public float handBoundsRadius = .25f;
         [Range(0, .20f)] public float displacement = .12f;
         [Min(.1f)] public float baselineSeconds = 5;
         [Min(1)] public float driftSeconds = 40;
@@ -26,6 +33,12 @@ namespace DisappearingHand
             s.holdSeconds = Safe(s.holdSeconds, .1f, 60, 3);
             s.searchSeconds = Safe(s.searchSeconds, 1, 120, 15);
             s.revealSeconds = Safe(s.revealSeconds, .1f, 20, 2);
+            s.lookAwayStepMetres = Safe(s.lookAwayStepMetres, .001f, .03f, .01f);
+            s.lookAwayDwellSeconds = Safe(s.lookAwayDwellSeconds, .1f, 2, .25f);
+            s.lookBackDwellSeconds = Safe(s.lookBackDwellSeconds, .1f, 2, .25f);
+            s.lookAwayTimeoutSeconds = Safe(s.lookAwayTimeoutSeconds, 5, 600, 180);
+            s.handBoundsRadius = Safe(s.handBoundsRadius, .15f, .5f, .25f);
+            if (!Enum.IsDefined(typeof(DriftPresentation), s.presentation)) s.presentation = DriftPresentation.Continuous;
             return s;
         }
         static float Safe(float v, float min, float max, float fallback) =>
@@ -43,6 +56,9 @@ namespace DisappearingHand
         public bool Hidden => Phase == TrialPhase.Search;
         public event Action<TrialPhase> Changed;
         float searchShift;
+        public int HiddenSteps { get; private set; }
+        public float NextHiddenShift => Settings.controlCondition ? 0 : Mathf.Min(Settings.displacement, (HiddenSteps + 1) * Settings.lookAwayStepMetres);
+        public bool HiddenStepsComplete => HiddenSteps >= Mathf.Max(1, Mathf.CeilToInt(Settings.displacement / Settings.lookAwayStepMetres - .00001f));
         public float Shift
         {
             get
@@ -50,7 +66,8 @@ namespace DisappearingHand
                 float full = Settings.controlCondition ? 0 : Settings.displacement;
                 switch (Phase)
                 {
-                    case TrialPhase.Drift: return full * Mathf.Clamp01(PhaseTime / Settings.driftSeconds);
+                    case TrialPhase.Drift: return Settings.presentation == DriftPresentation.LookAwaySteps
+                        ? Mathf.Min(full, HiddenSteps * Settings.lookAwayStepMetres) : full * Mathf.Clamp01(PhaseTime / Settings.driftSeconds);
                     case TrialPhase.Hold: return full;
                     case TrialPhase.Search: return searchShift;
                     case TrialPhase.Reveal: return searchShift * (1 - Mathf.SmoothStep(0, 1, PhaseTime / Settings.revealSeconds));
@@ -63,7 +80,7 @@ namespace DisappearingHand
         public bool Start(TrialSettings settings)
         {
             if (Active) return false;
-            Settings = settings.Snapshot(); Elapsed = 0; searchShift = 0;
+            Settings = settings.Snapshot(); Elapsed = 0; searchShift = 0; HiddenSteps = 0;
             Set(TrialPhase.Baseline); return true;
         }
         public void Tick(float deltaTime)
@@ -72,6 +89,13 @@ namespace DisappearingHand
             // Consume overshoot so timing does not depend on display frame rate.
             while (Active && deltaTime > 0)
             {
+                if (Phase == TrialPhase.Drift && Settings.presentation == DriftPresentation.LookAwaySteps)
+                {
+                    PhaseTime += deltaTime; Elapsed += deltaTime;
+                    // No elapsed-time fallback that could shift a hand while visible.
+                    if (PhaseTime >= Settings.lookAwayTimeoutSeconds) Abort();
+                    break;
+                }
                 float remaining = Duration() - PhaseTime;
                 float step = Mathf.Min(deltaTime, remaining);
                 PhaseTime += step; Elapsed += step; deltaTime -= step;
@@ -86,6 +110,16 @@ namespace DisappearingHand
                 }
             }
         }
+        public bool AdvanceHiddenStep()
+        {
+            if (Phase != TrialPhase.Drift || Settings.presentation != DriftPresentation.LookAwaySteps || HiddenStepsComplete) return false;
+            HiddenSteps++; return true;
+        }
+        public bool FinishHiddenDrift()
+        {
+            if (Phase != TrialPhase.Drift || Settings.presentation != DriftPresentation.LookAwaySteps || !HiddenStepsComplete) return false;
+            Set(TrialPhase.Hold); return true;
+        }
         public bool HideNow()
         {
             if (Phase < TrialPhase.Baseline || Phase > TrialPhase.Hold) return false;
@@ -97,7 +131,7 @@ namespace DisappearingHand
             Set(TrialPhase.Reveal); return true;
         }
         public void Abort() { if (Active) Set(TrialPhase.Aborted); }
-        public void Reset() { searchShift = 0; Elapsed = 0; Set(TrialPhase.Ready); }
+        public void Reset() { searchShift = 0; Elapsed = 0; HiddenSteps = 0; Set(TrialPhase.Ready); }
         float Duration()
         {
             switch (Phase)

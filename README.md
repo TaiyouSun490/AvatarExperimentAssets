@@ -1,5 +1,10 @@
 # Avatar Experiment Assets
 
+`codex/dht-look-away` に、通常 DHT の **HMD 視野外変更版** を追加しました。
+両手が描画視野外に出た間に1回ずつ位置を変え、見直すまで次の変更を待ちます。
+[導入・操作・原著との違い](Experiments~/DisappearingHandTrick/Documentation/LookAwayDHT.md) を参照してください。
+通常版と腱振動版も別シーンで保持しています。
+
 ## 腱振動・運動錯覚版の研究ブランチ
 
 `codex/tendon-vibration-dht` は `Diappearing` の `9ffbce3` から分岐した研究用ブランチです。

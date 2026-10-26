@@ -10,8 +10,9 @@ New-Item -ItemType Directory -Path $destinationPath | Out-Null
 foreach ($folder in @('Assets','Packages','ProjectSettings','Tools','Documentation')) {
     Copy-Item -LiteralPath (Join-Path $sourceProject $folder) -Destination $destinationPath -Recurse
 }
-foreach ($file in @('README.md','Start-Tendon-PCVR.cmd','Start-Tendon-Desktop.cmd')) {
-    Copy-Item -LiteralPath (Join-Path $sourceProject $file) -Destination $destinationPath
+Copy-Item -LiteralPath (Join-Path $sourceProject 'README.md') -Destination $destinationPath
+foreach ($file in Get-ChildItem -LiteralPath $sourceProject -Filter 'Start-*.cmd' -File) {
+    Copy-Item -LiteralPath $file.FullName -Destination $destinationPath
 }
 $manifestPath = Join-Path $destinationPath 'Packages/manifest.json'
 $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json

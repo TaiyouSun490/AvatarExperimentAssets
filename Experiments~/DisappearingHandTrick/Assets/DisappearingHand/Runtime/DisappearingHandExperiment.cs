@@ -33,6 +33,13 @@ namespace DisappearingHand
         bool priorStart, priorConfirm, priorMenu, priorReset, trialLeftController, trialRightController;
         float leftPinchTime, rightPinchTime, nextSample, nextUI;
         bool previewSearchMoved;
+        readonly LookAwayGate lookAway = new LookAwayGate();
+        readonly HandViewDetector viewDetector = new HandViewDetector();
+        public HandViewObservation HandView { get; private set; }
+        public bool LookAwayArmed => lookAway.Armed;
+        public bool PreviewLookingAway { get; private set; }
+        int lookAwayFrame = -1;
+        Vector2 operatorScroll;
 
         void Awake()
         {
@@ -90,6 +97,8 @@ namespace DisappearingHand
                 else if (!desktopPreview && (trialLeftController != rig.LeftUsesController || trialRightController != rig.RightUsesController)) Abort("input_source_changed");
                 else if (Vector3.Distance(originPosition,rig.trackingSpace.position) > .01f || Quaternion.Angle(originRotation,rig.trackingSpace.rotation) > 1) Abort("tracking_origin_changed");
                 else if (Time.unscaledDeltaTime > .5f) Abort("frame_gap");
+                else if (Protocol.Phase == TrialPhase.Drift && Protocol.Settings.presentation == DriftPresentation.LookAwaySteps &&
+                    Protocol.PhaseTime + Time.unscaledDeltaTime >= Protocol.Settings.lookAwayTimeoutSeconds) Abort("look_away_timeout");
                 else Protocol.Tick(Time.unscaledDeltaTime);
             }
             if (desktopPreview) UpdatePreview();
@@ -97,12 +106,37 @@ namespace DisappearingHand
             { nextSample = Time.unscaledTime + 1f/30; Record("sample"); }
             if (Time.unscaledTime >= nextUI) { nextUI = Time.unscaledTime + .1f; UpdateLabels(); }
         }
-        void LateUpdate() { ApplyVisuals(); }
+        void LateUpdate()
+        {
+            // Desktop/non-stereo fallback. In PCVR, inspect the final pre-render head pose below.
+            if (desktopPreview || !rig.head.stereoEnabled) ProcessLookAway();
+            ApplyVisuals();
+        }
         [BeforeRenderOrder(10000)]
         void BeforeRender()
         {
             if (Protocol.Active && !TrackingReady) Abort("tracking_lost_before_render");
+            ProcessLookAway();
             ApplyVisuals();
+        }
+        void ProcessLookAway()
+        {
+            if (lookAwayFrame == Time.frameCount || !Protocol.Active || Protocol.Settings.presentation != DriftPresentation.LookAwaySteps) return;
+            lookAwayFrame = Time.frameCount;
+            if (!TrackingReady) { lookAway.Reset(); HandView = default; return; }
+            if (Protocol.Phase != TrialPhase.Baseline && Protocol.Phase != TrialPhase.Drift) return;
+            var axis = tableFrame.right;
+            HandView = viewDetector.Observe(rig.head,
+                rig.leftArm.wrist.position + Protocol.Offset(true,axis), rig.rightArm.wrist.position + Protocol.Offset(false,axis),
+                rig.leftArm.wrist.position + axis * Protocol.NextHiddenShift, rig.rightArm.wrist.position - axis * Protocol.NextHiddenShift,
+                Protocol.Settings.handBoundsRadius);
+            bool wasArmed = lookAway.Armed;
+            bool step = lookAway.Tick(Time.unscaledDeltaTime, HandView, Protocol.Settings);
+            if (!wasArmed && lookAway.Armed) Record("look_away_armed");
+            if (Protocol.Phase != TrialPhase.Drift) return;
+            if (step && Protocol.AdvanceHiddenStep()) { ApplyVisuals(); Record("look_away_step"); }
+            // Do not hide the hand while the participant is still facing away.
+            if (Protocol.HiddenStepsComplete && lookAway.Returned) { Record("look_back_after_final_step"); Protocol.FinishHiddenDrift(); }
         }
 
         public void AlignTable()
@@ -145,6 +179,7 @@ namespace DisappearingHand
             SubsystemManager.GetSubsystems(originInputs);
             foreach (var input in originInputs) input.trackingOriginUpdated += OriginUpdated;
             previewSearchMoved = false;
+            lookAway.Reset(); HandView = default; lookAwayFrame = -1;
             Protocol.Start(snapshot); menu.SetActive(false); nextSample = Time.unscaledTime;
         }
         public void ConfirmSearch()
@@ -165,6 +200,14 @@ namespace DisappearingHand
         }
         public void ToggleTarget() { if (!Protocol.Active) settings.targetLeft = !settings.targetLeft; UpdateLabels(); }
         public void ToggleControl() { if (!Protocol.Active) settings.controlCondition = !settings.controlCondition; UpdateLabels(); }
+        public void TogglePresentation()
+        { if (!Protocol.Active) settings.presentation = settings.presentation == DriftPresentation.Continuous ? DriftPresentation.LookAwaySteps : DriftPresentation.Continuous; UpdateLabels(); }
+        public void SetPreviewLookingAway(bool away)
+        {
+            if (!desktopPreview) return;
+            PreviewLookingAway = away;
+            rig.head.transform.rotation = Quaternion.Euler(25, away ? 120 : 0, 0);
+        }
         public void ChangeShift(float delta) { if (!Protocol.Active) settings.displacement = Mathf.Clamp(settings.displacement+delta,0,.20f); UpdateLabels(); }
         public void ChangeDrift(float delta) { if (!Protocol.Active) settings.driftSeconds = Mathf.Clamp(settings.driftSeconds+delta,5,180); UpdateLabels(); }
         public void ToggleMenu() { menu.SetActive(!menu.activeSelf); }
@@ -208,7 +251,8 @@ namespace DisappearingHand
             log.Write(reason,Protocol,rig.leftArm.wristTarget.position,rig.rightArm.wristTarget.position,
                 rig.leftArm.wrist.position+Protocol.Offset(true,tableFrame.right),rig.rightArm.wrist.position+Protocol.Offset(false,tableFrame.right),
                 SearchTip(),desktopPreview || (rig.HeadTracked && rig.leftArm.tracked),desktopPreview || (rig.HeadTracked && rig.rightArm.tracked),
-                desktopPreview?"simulation":rig.LeftUsesController?"controller":"hand",desktopPreview?"simulation":rig.RightUsesController?"controller":"hand");
+                desktopPreview?"simulation":rig.LeftUsesController?"controller":"hand",desktopPreview?"simulation":rig.RightUsesController?"controller":"hand",
+                HandView, new Pose(rig.head.transform.position,rig.head.transform.rotation), lookAway.Armed);
         }
         void ReadInput()
         {
@@ -232,6 +276,8 @@ namespace DisappearingHand
             if (Input.GetKeyDown(KeyCode.F8)) ToggleMenu();
             if (Input.GetKeyDown(KeyCode.T)) ToggleTarget();
             if (Input.GetKeyDown(KeyCode.B)) ToggleControl();
+            if (Input.GetKeyDown(KeyCode.G)) TogglePresentation();
+            if (Input.GetKeyDown(KeyCode.L)) SetPreviewLookingAway(!PreviewLookingAway);
         }
         static bool Button(XRNode node,InputFeatureUsage<bool> usage)
         { var d=InputDevices.GetDeviceAtXRNode(node); return d.isValid && d.TryGetFeatureValue(usage,out bool value) && value; }
@@ -239,7 +285,7 @@ namespace DisappearingHand
         void UpdatePreview()
         {
             if (Protocol.Phase == TrialPhase.Baseline) { previewLeft=initialLeft; previewRight=initialRight; }
-            if (Protocol.Phase == TrialPhase.Drift || Protocol.Phase == TrialPhase.Hold)
+            if ((Protocol.Phase == TrialPhase.Drift || Protocol.Phase == TrialPhase.Hold) && Protocol.Settings.presentation == DriftPresentation.Continuous)
             { previewLeft=initialLeft-Protocol.Offset(true,tableFrame.right); previewRight=initialRight-Protocol.Offset(false,tableFrame.right); }
             if (Input.GetKeyDown(KeyCode.P) && Protocol.Phase == TrialPhase.Search) previewSearchMoved = !previewSearchMoved;
             if (Protocol.Phase == TrialPhase.Search && previewSearchMoved)
@@ -274,11 +320,12 @@ namespace DisappearingHand
             if (instructionText) instructionText.text = instruction;
             if (statusText) statusText.text = (desktopPreview?"DESKTOP PREVIEW  |  ":"PCVR  |  ") +
                 (settings.targetLeft?"Hide LEFT":"Hide RIGHT") + "  |  " + (settings.controlCondition?"CONTROL":"DRIFT") +
-                "\n" + (settings.displacement*100).ToString("F0") + " cm per hand  /  " + settings.driftSeconds.ToString("F0") + " s";
+                "\n" + (settings.displacement*100).ToString("F0") + " cm per hand  /  " + settings.presentation;
         }
         void OnGUI()
         {
             GUILayout.BeginArea(new Rect(16,16,340,Screen.height-32),GUI.skin.box);
+            operatorScroll = GUILayout.BeginScrollView(operatorScroll);
             GUILayout.Label("DISAPPEARING HAND TRICK / FPS ARMS");
             GUILayout.Label(desktopPreview?"DESKTOP SIMULATION (not participant data)":"WINDOWS PCVR / OpenXR");
             if (TryGetComponent<PcvrSession>(out var session)) GUILayout.Label(session.Status);
@@ -293,17 +340,30 @@ namespace DisappearingHand
             GUI.enabled=!Protocol.Active;
             if (GUILayout.Button("T  Target: " + (settings.targetLeft?"LEFT":"RIGHT"))) ToggleTarget();
             if (GUILayout.Button("B  Condition: " + (settings.controlCondition?"CONTROL (no drift)":"DRIFT"))) ToggleControl();
+            if (GUILayout.Button("G  Presentation: " + settings.presentation)) TogglePresentation();
             GUILayout.Label("Displacement / hand: " + (100*settings.displacement).ToString("F0") + " cm");
             settings.displacement=GUILayout.HorizontalSlider(settings.displacement,0,.20f);
-            GUILayout.Label("Drift duration: " + settings.driftSeconds.ToString("F0") + " seconds");
-            settings.driftSeconds=GUILayout.HorizontalSlider(settings.driftSeconds,5,120);
+            if (settings.presentation == DriftPresentation.Continuous)
+            {
+                GUILayout.Label("Drift duration: " + settings.driftSeconds.ToString("F0") + " seconds");
+                settings.driftSeconds=GUILayout.HorizontalSlider(settings.driftSeconds,5,120);
+            }
+            else
+            {
+                GUILayout.Label("Step / away episode: " + (settings.lookAwayStepMetres*100).ToString("F1") + " cm");
+                settings.lookAwayStepMetres=GUILayout.HorizontalSlider(settings.lookAwayStepMetres,.001f,.03f);
+                GUILayout.Label("HMD view proxy; not eye tracking.\nLook back at both hands between away episodes.");
+            }
             GUI.enabled=true;
             if (GUILayout.Button("F8  Headset menu")) ToggleMenu();
             GUILayout.Label("Controllers: X start, A confirm, B reset.\nHands: left pinch 1 s align/start; right pinch 1 s confirm.\nMenu: aim controller + trigger, or look + right pinch.");
             if (desktopPreview) GUILayout.Label("Arrow keys: right hand; Shift: left hand.\nP: search movement. SPACE: confirm.");
+            if (desktopPreview && GUILayout.Button("L  Preview: turn head away / back")) SetPreviewLookingAway(!PreviewLookingAway);
+            if (Protocol.Active && Protocol.Settings.presentation == DriftPresentation.LookAwaySteps)
+                GUILayout.Label("Hidden steps: " + Protocol.HiddenSteps + " / armed: " + lookAway.Armed + "\nBoth outside: " + HandView.bothOutside);
             if (!string.IsNullOrEmpty(log.Path)) GUILayout.Label("CSV: " + System.IO.Path.GetFileName(log.Path));
             if (!string.IsNullOrEmpty(log.Error)) GUILayout.Label("LOG ERROR: " + log.Error);
-            GUILayout.EndArea();
+            GUILayout.EndScrollView(); GUILayout.EndArea();
         }
         static bool Finite(Vector3 v) => !(float.IsNaN(v.x)||float.IsNaN(v.y)||float.IsNaN(v.z)||float.IsInfinity(v.x)||float.IsInfinity(v.y)||float.IsInfinity(v.z));
     }

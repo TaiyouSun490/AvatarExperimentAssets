@@ -6,8 +6,8 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
-    path: Assets/Scenes/TendonHandVR.unity
-    guid: b1c489b85cd792342932f84480adda64
+    path: Assets/Scenes/DHTLookAwayVR.unity
+    guid: 8db0c187c0b113d43a061dcc9bbf9415
   m_configObjects:
     com.unity.xr.management.loader_settings: {fileID: 11400000, guid: 2a94276915fb3b1429472bbce39013f8, type: 2}
     com.unity.xr.openxr.settings4: {fileID: 11400000, guid: ea2694c0c8440584794f92af25c176f0, type: 2}
