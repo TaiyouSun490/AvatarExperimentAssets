@@ -1,7 +1,8 @@
 # Disappearing Hand Trick 研究プロジェクト — FPS Arms / PCVR
 
-> `codex/tendon-vibration-dht` ブランチでは、このプロジェクトを腱振動・運動錯覚版の出発点として保持しています。
-> 現時点の動作は以下の元の DHT 試作のままです。刺激装置の制御と停止後の回復測定は未実装です。
+> `codex/tendon-vibration-dht` ブランチには、腱振動・運動錯覚版の `TendonHandVR` シーンを追加しています。
+> **腱振動版を使う場合は [専用の導入・操作手順](Documentation/TendonHand.md) を参照してください。**
+> 以下は保持している元の DHT シーンの手順です。
 > 分岐の目的と関連研究は [回復測定の研究メモ](../../Documentation~/TendonVibrationRecovery.md) を参照してください。
 > この分岐を取得する場合は、下記 clone コマンドのブランチを `codex/tendon-vibration-dht` に変更してください。
 

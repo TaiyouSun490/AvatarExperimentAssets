@@ -120,6 +120,22 @@ namespace DisappearingHand.Editor
             }
             graphics.ApplyModifiedPropertiesWithoutUndo();
             QualitySettings.vSyncCount=0;QualitySettings.shadows=UnityEngine.ShadowQuality.Disable;
+            // A fresh checkout may have no per-target settings asset yet.
+            if(!EditorBuildSettings.TryGetConfigObject<UnityEditor.XR.Management.XRGeneralSettingsPerBuildTarget>(UnityEngine.XR.Management.XRGeneralSettings.k_SettingsKey,out var targets)||!targets)
+            {
+                const string path="Assets/XR/XRGeneralSettingsPerBuildTarget.asset";
+                targets=AssetDatabase.LoadAssetAtPath<XRGeneralSettingsPerBuildTarget>(path);
+                if(!targets)
+                {
+                    Directory.CreateDirectory("Assets/XR");
+                    targets=ScriptableObject.CreateInstance<XRGeneralSettingsPerBuildTarget>();
+                    AssetDatabase.CreateAsset(targets,path);
+                }
+                EditorBuildSettings.AddConfigObject(UnityEngine.XR.Management.XRGeneralSettings.k_SettingsKey,targets,true);
+            }
+            if(!targets.HasSettingsForBuildTarget(BuildTargetGroup.Standalone)) targets.CreateDefaultSettingsForBuildTarget(BuildTargetGroup.Standalone);
+            if(!targets.HasManagerSettingsForBuildTarget(BuildTargetGroup.Standalone)) targets.CreateDefaultManagerSettingsForBuildTarget(BuildTargetGroup.Standalone);
+            EditorUtility.SetDirty(targets);
             var general=XRGeneralSettingsPerBuildTarget.XRGeneralSettingsForBuildTarget(BuildTargetGroup.Standalone);
             if(!general||!general.Manager)throw new InvalidOperationException("Standalone XR settings missing.");
             // PcvrSession starts XR on demand; --desktop never initializes a headset runtime.

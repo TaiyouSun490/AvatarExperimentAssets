@@ -7,9 +7,11 @@ Disappearing Hand Trick の位置ずれを、腱振動刺激とバーチャル�
 振動を停止した後に手の位置・姿勢感覚がどのように回復するかを調べることを目的にしています。
 元の `Diappearing` ブランチは保持しています。
 
-現段階は分岐と研究設計の整理までです。下記 Unity プロジェクトは元の DHT 試作のままであり、
-腱振動装置の制御や振動停止後の回復測定はまだ実装していません。
-既存の表示復帰アニメーションを、知覚の回復測定として扱わないでください。
+FPSArm と [ESP32HapticController](https://github.com/TaiyouSun490/ESP32HapticController) を使う
+腱振動版を `TendonHandVR` シーンとして追加しました。刺激停止後は、ずれた仮想手の保持・非表示・
+実手に一致した表示を比較し、実手の追跡値・表示値・口頭回答の角度を別々に CSV 記録します。
+導入・起動は [腱振動版の手順](Experiments~/DisappearingHandTrick/Documentation/TendonHand.md) を参照してください。
+知覚の回復を自動判定するものではなく、実機での振動・錯覚成立は別途確認が必要です。
 関連研究、測定指標、実装時の変更点は [腱振動停止後の回復に関する研究メモ](Documentation~/TendonVibrationRecovery.md) を参照してください。
 
 Unity 6 / Windows PCVR 用のアバター実験共通パッケージです。

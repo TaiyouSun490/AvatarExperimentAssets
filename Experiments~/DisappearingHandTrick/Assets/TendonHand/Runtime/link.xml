@@ -1,0 +1,7 @@
+<linker>
+  <assembly fullname="Assembly-CSharp" ignoreIfMissing="1">
+    <type fullname="Esp32VibrationController.VibrationControllerClient" preserve="all" />
+    <type fullname="Esp32VibrationController.VibrationWaveform" preserve="all" />
+    <type fullname="Esp32VibrationController.VibrationGroupMode" preserve="all" />
+  </assembly>
+</linker>

@@ -6,8 +6,8 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
-    path: Assets/Scenes/DisappearingHandTrickVR.unity
-    guid: 9e98ae89c7c2e6e4b86560924c03f504
+    path: Assets/Scenes/TendonHandVR.unity
+    guid: b1c489b85cd792342932f84480adda64
   m_configObjects:
     com.unity.xr.management.loader_settings: {fileID: 11400000, guid: 2a94276915fb3b1429472bbce39013f8, type: 2}
     com.unity.xr.openxr.settings4: {fileID: 11400000, guid: ea2694c0c8440584794f92af25c176f0, type: 2}

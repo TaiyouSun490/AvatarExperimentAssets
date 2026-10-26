@@ -8,17 +8,19 @@ namespace DisappearingHand
     public sealed class ExperimentMenuPointer : MonoBehaviour
     {
         public DisappearingHandExperiment experiment;
+        public TendonHand.TendonHandExperiment tendonExperiment;
         public RectTransform panel;
         public Button[] buttons;
         public RectTransform cursor;
         bool wasDown;
         void Update()
         {
-            var rig=experiment.rig;
+            var rig=tendonExperiment ? tendonExperiment.rig : experiment.rig;
             bool controller=rig.TryGetController(false,out Pose pose,out float trigger,out _);
             bool down=controller?trigger>.65f:rig.RightPinching;
             bool clicked=down&&!wasDown; wasDown=down;
-            if (!panel.gameObject.activeInHierarchy || !experiment.TrackingReady) { cursor.gameObject.SetActive(false); return; }
+            bool ready=tendonExperiment ? tendonExperiment.TrackingReady : experiment.TrackingReady;
+            if (!panel.gameObject.activeInHierarchy || !ready) { cursor.gameObject.SetActive(false); return; }
             Ray ray=controller?new Ray(pose.position,pose.rotation*Vector3.forward):new Ray(rig.head.transform.position,rig.head.transform.forward);
             var plane=new Plane(panel.forward,panel.position);
             if (!plane.Raycast(ray,out float distance)||distance>3) { cursor.gameObject.SetActive(false); return; }
