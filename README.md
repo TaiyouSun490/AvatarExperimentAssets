@@ -1,5 +1,9 @@
 # Avatar Experiment Assets
 
+`codex/dht-original-protocol` に **Newport & Gilpin (2011) の誘導手続きに準拠したVR版**を追加しました。
+原著補足を確認し、25秒・片手6.25cm・7秒フェード、SH/CH/DHの3条件と接地確認を実装しています。
+[原著版の起動・操作・VRへの置換箇所](Experiments~/DisappearingHandTrick/Documentation/OriginalDHT2011.md) を参照してください。
+
 `codex/dht-look-away` に、通常 DHT の **HMD 視野外変更版** を追加しました。
 両手が描画視野外に出た間に1回ずつ位置を変え、見直すまで次の変更を待ちます。
 [導入・操作・原著との違い](Experiments~/DisappearingHandTrick/Documentation/LookAwayDHT.md) を参照してください。

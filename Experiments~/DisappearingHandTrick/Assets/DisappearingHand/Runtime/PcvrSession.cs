@@ -9,13 +9,14 @@ namespace DisappearingHand
     {
         public DisappearingHandExperiment experiment;
         public TendonHand.TendonHandExperiment tendonExperiment;
+        public OriginalDhtExperiment originalExperiment;
         public string Status { get; private set; } = "Starting";
         XRManagerSettings manager;
         bool ownsSession;
         IEnumerator Start()
         {
             // All Awake methods, including command-line preview selection, have run.
-            if (tendonExperiment ? tendonExperiment.desktopPreview : experiment.desktopPreview) { Status = "Desktop preview"; yield break; }
+            if (originalExperiment ? originalExperiment.desktopPreview : tendonExperiment ? tendonExperiment.desktopPreview : experiment.desktopPreview) { Status = "Desktop preview"; yield break; }
             yield return null;
             manager = XRGeneralSettings.Instance ? XRGeneralSettings.Instance.Manager : null;
             if (!manager) { Status = "OpenXR configuration missing"; Debug.LogError(Status); yield break; }

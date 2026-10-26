@@ -1,5 +1,9 @@
 # Disappearing Hand Trick 研究プロジェクト — FPS Arms / PCVR
 
+> **原著版を使う場合は [OriginalDHT2011.md](Documentation/OriginalDHT2011.md) を参照。**
+> `DHTOriginal2011VR` は2011年の原著補足の速度・時間・3条件に準拠した、別シーンのVR実装です。
+> **Unityはリポジトリ外のスタンドアロン作業フォルダーで開いてください。** `Tools/Create-DHTWorkspace.ps1` で作成できます。
+
 > `codex/dht-look-away` では、通常版を残して **HMD の視野外に両手が出た時だけ位置を変更する派生版** を追加しています。
 > [視野外変更版の操作・原著との違い](Documentation/LookAwayDHT.md) を参照してください。
 > 通常版の秒数・片手12cm・固定リングは VR 試作値であり、原著の厳密再現ではありません。

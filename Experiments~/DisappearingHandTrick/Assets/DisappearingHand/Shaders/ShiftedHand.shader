@@ -5,6 +5,7 @@ Shader "DisappearingHand/ShiftedHand"
         [MainTexture] _BaseMap("Skin", 2D) = "white" {}
         _BaseColor("Tint", Color) = (1,1,1,1)
         _Visible("Visible", Float) = 1
+        _Fade("Fade to black", Range(0,1)) = 1
         _Wrist("Physical wrist", Vector) = (0,0,0,0)
         _Forward("Hand forward", Vector) = (0,0,1,0)
         _Shift("Visual displacement", Vector) = (0,0,0,0)
@@ -28,7 +29,7 @@ Shader "DisappearingHand/ShiftedHand"
             TEXTURE2D(_BaseMap); SAMPLER(sampler_BaseMap);
             CBUFFER_START(UnityPerMaterial)
                 float4 _BaseMap_ST, _BaseColor, _Wrist, _Forward, _Shift, _Rotation;
-                float _Visible, _CuffLength;
+                float _Visible, _CuffLength, _Fade;
             CBUFFER_END
             struct Attributes { float4 positionOS:POSITION; float3 normalOS:NORMAL; float2 uv:TEXCOORD0; UNITY_VERTEX_INPUT_INSTANCE_ID };
             struct Varyings
@@ -63,7 +64,7 @@ Shader "DisappearingHand/ShiftedHand"
                 Light light = GetMainLight();
                 half3 normal = normalize(input.normalWS);
                 half3 illumination = half3(.47,.49,.52) + light.color * saturate(dot(normal, light.direction)) * .65;
-                return half4(SAMPLE_TEXTURE2D(_BaseMap,sampler_BaseMap,input.uv).rgb * _BaseColor.rgb * illumination, 1);
+                return half4(SAMPLE_TEXTURE2D(_BaseMap,sampler_BaseMap,input.uv).rgb * _BaseColor.rgb * illumination * _Fade, 1);
             }
             ENDHLSL
         }
