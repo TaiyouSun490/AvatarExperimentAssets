@@ -1,0 +1,51 @@
+{
+  "kind": "process",
+  "input_audio": "MarbleHand_StoneTap_v2.wav",
+  "source": {
+    "kind": "generate",
+    "title": "MarbleHand_StoneTap",
+    "original_idea": "VR派生：接触・振動＋音＋手を大理石の見た目に変える",
+    "audio_type": "sfx",
+    "prompt": "Single clean stone impact for a tactile virtual reality hand experiment.",
+    "prompt_used": "TrackType: SFX, Single clean stone impact for a tactile virtual reality hand experiment, small wooden mallet touching a polished marble slab, one gentle isolated tap with a crisp onset and short natural decay, dense hard marble, bright dry stone clink, no shattering, close microphone in a quiet room, dry recording.",
+    "sound_fields": {
+      "source": "small wooden mallet touching a polished marble slab",
+      "action": "one gentle isolated tap with a crisp onset and short natural decay",
+      "material": "dense hard marble, bright dry stone clink, no shattering",
+      "space": "close microphone in a quiet room, dry recording"
+    },
+    "bpm": null,
+    "seconds": 2.0,
+    "negative_prompt": null,
+    "cfg": 1.0,
+    "steps": 8,
+    "variations": 2,
+    "seed": 281029,
+    "candidate": 2,
+    "file": "MarbleHand_StoneTap_v2.wav",
+    "sample_rate": 44100,
+    "bit_depth": 24,
+    "created": "2026-10-28T15:08:24",
+    "backend": "sa3-torch",
+    "model": "medium + same-l",
+    "peak_dbfs": -3.7,
+    "raw_peak_dbfs": -3.7,
+    "ceiling_gain_db": 0.0
+  },
+  "created": "2026-10-28T15:13:38",
+  "format": "wav",
+  "sample_rate": 48000,
+  "channels": 1,
+  "seconds": 0.05,
+  "steps": [
+    "trim_silence -40.0 dB",
+    "mono",
+    "resample 44100→48000",
+    "fade 0.0/10.0 ms",
+    "peak normalize -6.0 dBFS (-2.31 dB)"
+  ],
+  "peak": 0.501,
+  "peak_dbfs": -6.0,
+  "rms": 0.0671,
+  "file": "MarbleTap2.wav"
+}
