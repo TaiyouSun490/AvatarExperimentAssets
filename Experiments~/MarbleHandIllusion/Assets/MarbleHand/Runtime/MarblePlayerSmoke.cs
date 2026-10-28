@@ -64,7 +64,42 @@ namespace MarbleHand
             yield return new WaitForSeconds(.9f); int before = e.OutputPulseCount;
             e.ResetTrial(); yield return new WaitForSeconds(1.8f);
             Require(e.OutputPulseCount == before && !e.OutputsActive && e.MarbleAmount == 0, "Abort cancels future stimuli and restores skin");
-            File.WriteAllText(Path.Combine(folder, "result.txt"), "PASS: " + trials + " conditions, baseline/post gates, rendered marble/skin contrast, unchanged tracking, one simulated pulse/contact, CSV, completion and queued abort.\nDesktop simulation only; no HMD/physical actuator used.\n");
+            var clips = e.stoneClips;
+            for (int mask = 0; mask < 8; mask++)
+            {
+                bool sound = (mask & 1) != 0, visual = (mask & 2) != 0, vibration = (mask & 4) != 0;
+                e.settings.condition = MarbleCondition.SynchronousMarble; e.settings.duration = 3; e.settings.rampHits = 2;
+                e.settings.soundEnabled = sound; e.settings.visualEnabled = visual; e.settings.vibrationEnabled = vibration;
+                // Prove sound-off trials do not require audio assets, and vibration-off trials do not require a connection.
+                e.stoneClips = sound ? clips : null;
+                if (vibration)
+                {
+                    e.ConnectOutput(); double readyBy = Time.realtimeSinceStartupAsDouble + 2;
+                    while (!e.OutputReady && Time.realtimeSinceStartupAsDouble < readyBy) yield return null;
+                    Require(e.OutputReady, "Simulated output reconnects");
+                }
+                int pulseStart = e.OutputPulseCount, audioStart = e.AudioScheduleCount;
+                e.StartTrial(); Require(e.Phase == TrialPhase.PreRatings, "Combination starts without disabled devices/assets");
+                string logPath = e.LogPath; e.SubmitRatings();
+                // Changing the editable object mid-trial cannot alter the frozen conditions.
+                e.settings.soundEnabled = !sound; e.settings.visualEnabled = !visual; e.settings.vibrationEnabled = !vibration;
+                yield return new WaitForSeconds(1.3f);
+                Require(e.Phase == TrialPhase.Induction && e.hammer.gameObject.activeSelf == visual, "Visual switch controls hammer");
+                double until = Time.realtimeSinceStartupAsDouble + 8;
+                while (e.Phase == TrialPhase.Induction && Time.realtimeSinceStartupAsDouble < until) yield return null;
+                Require(e.Phase == TrialPhase.PostRatings, "Combination reaches post ratings: " + e.Message);
+                yield return new WaitForSeconds(.15f);
+                Require(e.Contacts >= 4 && e.OutputPulseCount - pulseStart == (vibration ? e.Contacts : 0), "Vibration switch controls pulses");
+                Require(e.AudioScheduleCount - audioStart == (sound ? e.Contacts - 1 : 0), "Sound switch controls scheduled audio");
+                Require(e.MarbleAmount == (visual ? 1 : 0) && e.rig.rightArm.skin.enabled, "Visual-off leaves the tracked skin hand visible");
+                string json = File.ReadAllText(Path.ChangeExtension(logPath, ".json"));
+                Require(json.Contains("\"soundEnabled\": " + (sound ? "true" : "false")) &&
+                        json.Contains("\"visualEnabled\": " + (visual ? "true" : "false")) &&
+                        json.Contains("\"vibrationEnabled\": " + (vibration ? "true" : "false")), "Frozen modality configuration saved");
+                e.SubmitRatings(); Require(e.Phase == TrialPhase.Complete, "Combination completes");
+                e.ResetTrial(); e.stoneClips = clips;
+            }
+            File.WriteAllText(Path.Combine(folder, "result.txt"), "PASS: " + trials + " original conditions and all 8 sound/visual/vibration combinations, including disabled device/assets, frozen settings, CSV, completion and queued abort.\nDesktop simulation only; no HMD/physical actuator used.\n");
         }
         int Capture(string name)
         {

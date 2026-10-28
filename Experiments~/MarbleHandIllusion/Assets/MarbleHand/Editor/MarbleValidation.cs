@@ -45,11 +45,24 @@ namespace MarbleHand.Editor
             Check(MarbleProtocol.Plan(new MarbleSettings { seed = 4 }, 2)[1].contactTime != baseline[1].contactTime, "Seed controls sequence");
             var reordered = new List<MarbleImpact> { new MarbleImpact(1, 0, 2, 3.6, 0, 0), new MarbleImpact(2, 0, 2.4, 3.2, 0, 0) };
             Check(Math.Abs(MarbleProtocol.EndTime(new MarbleSettings { duration = 3 }, reordered, .1) - 3.7) < .00001, "Tail includes reordered delayed sounds");
+            foreach (bool sound in new[] { false, true })
+            foreach (bool visual in new[] { false, true })
+            foreach (bool vibration in new[] { false, true })
+            {
+                var s = new MarbleSettings { soundEnabled = sound, visualEnabled = visual, vibrationEnabled = vibration };
+                var frozen = s.Snapshot(); var plan = MarbleProtocol.Plan(frozen, 2);
+                s.soundEnabled = !sound; s.visualEnabled = !visual; s.vibrationEnabled = !vibration;
+                Check(frozen.soundEnabled == sound && frozen.visualEnabled == visual && frozen.vibrationEnabled == vibration, "Modality toggles are frozen for the trial");
+                Check(plan.Count == baseline.Count && plan[20].contactTime == baseline[20].contactTime, "Modality switches preserve contact timing");
+                Check(plan[20].blend == (visual ? baseline[20].blend : 0), "Visual switch controls marble independently");
+                Check(MarbleProtocol.EndTime(frozen, reordered, 301) == (sound ? 304.6 : 300), "Sound-off skips delayed audio tail");
+            }
             OutputChecks(); FpsArmSmokeTests.Run();
             EditorSceneManager.OpenScene(MarbleBuild.ScenePath);
             var e = UnityEngine.Object.FindAnyObjectByType<MarbleExperiment>();
             Check(e && e.rig && e.hammer && e.worldStatus && e.GetComponent<PcvrSession>().experiment == e, "Independent scene wired");
             Check(e.settings.backend == HapticBackend.Simulation && !e.desktopPreview, "PCVR scene defaults to simulated output");
+            Check(e.settings.soundEnabled && e.settings.visualEnabled && e.settings.vibrationEnabled, "All three modalities enabled by default");
             Check(e.stoneClips.Length == 2 && e.stoneClips[0] && e.stoneClips[1], "Audio assets present");
             foreach (var clip in e.stoneClips)
             { Check(clip.channels == 1 && clip.frequency == 48000 && clip.length > .02 && clip.length < .2, "Short mono 48 kHz impact"); }

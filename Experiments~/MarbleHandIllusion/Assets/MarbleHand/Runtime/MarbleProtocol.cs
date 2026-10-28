@@ -12,6 +12,7 @@ namespace MarbleHand
     {
         public MarbleCondition condition;
         public HapticBackend backend;
+        public bool soundEnabled = true, visualEnabled = true, vibrationEnabled = true;
         public int seed = 281028, channel;
         public float duration = 300, minInterval = .8f, maxInterval = 1.6f;
         public int rampHits = 30;
@@ -63,7 +64,7 @@ namespace MarbleHand
                 double lag = .8 + .8 * delay.NextDouble();
                 result.Add(new MarbleImpact(id, clips.Next(clipCount), contact,
                     contact + (s.condition == MarbleCondition.DelayedSound ? lag : 0),
-                    s.condition == MarbleCondition.UnchangedSkin ? 0 : gain, gain));
+                    !s.visualEnabled || s.condition == MarbleCondition.UnchangedSkin ? 0 : gain, gain));
                 contact += s.minInterval + (s.maxInterval - s.minInterval) * timing.NextDouble();
             }
             return result;
@@ -71,6 +72,7 @@ namespace MarbleHand
         public static double EndTime(MarbleSettings s, IList<MarbleImpact> plan, double clipLength)
         {
             double end = s.duration;
+            if (!s.soundEnabled) return end;
             // Delayed sounds can reorder when using shorter demo intervals.
             foreach (var hit in plan) end = Math.Max(end, hit.soundTime + clipLength);
             return end;

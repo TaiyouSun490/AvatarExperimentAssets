@@ -25,6 +25,7 @@ namespace MarbleHand
         public int Contacts { get; private set; }
         public string LogPath { get; private set; }
         public int OutputPulseCount { get; private set; }
+        public int AudioScheduleCount { get; private set; }
         public bool OutputReady => output != null && output.Ready;
         public bool OutputsActive => (output != null && output.Active) || audioPool.Any(a => a && a.isPlaying);
         public bool TrackingReady => desktopPreview || (rig.HeadTracked && rig.rightArm.tracked);
@@ -76,9 +77,9 @@ namespace MarbleHand
             if (!TrackingReady) { Abort("Right hand or head tracking lost"); return; }
             if (now - previousFrame > .12) { Abort("Frame gap exceeded 120 ms; restart trial"); return; }
             previousFrame = now;
-            if (trial.backend != HapticBackend.XrController && (output == null || !output.Ready))
+            if (trial.vibrationEnabled && trial.backend != HapticBackend.XrController && (output == null || !output.Ready))
             { Abort("Haptic connection lost: " + output?.Failure); return; }
-            if (trial.backend == HapticBackend.XrController && !ControllerAvailable())
+            if (trial.vibrationEnabled && trial.backend == HapticBackend.XrController && !ControllerAvailable())
             { Abort("Haptic controller disconnected"); return; }
             try
             {
@@ -91,7 +92,7 @@ namespace MarbleHand
                 while (contacted < scheduled && origin + plan[contacted].contactTime <= now)
                 {
                     var hit = plan[contacted++]; Contacts = hit.id; MarbleAmount = hit.blend;
-                    if (trial.backend == HapticBackend.XrController)
+                    if (trial.vibrationEnabled && trial.backend == HapticBackend.XrController)
                     {
                         var device = InputDevices.GetDeviceAtXRNode(XRNode.RightHand);
                         if (!device.SendHapticImpulse(0, trial.amplitude, trial.pulseSeconds))
@@ -143,7 +144,7 @@ namespace MarbleHand
                 block.SetFloat("_Marble", arm.leftHand ? 0 : MarbleAmount);
                 arm.skin.SetPropertyBlock(block);
             }
-            hammer.gameObject.SetActive(Phase == TrialPhase.Induction && TrackingReady);
+            hammer.gameObject.SetActive(Phase == TrialPhase.Induction && TrackingReady && trial != null && trial.visualEnabled);
             if (!hammer.gameObject.activeSelf || plan == null) return;
             double t = AudioSettings.dspTime - origin;
             // Nearest contact controls approach/retraction; the head's lower surface touches the dorsal anchor.
@@ -158,21 +159,23 @@ namespace MarbleHand
         void Schedule(MarbleImpact hit, double now)
         {
             double contactDsp = origin + hit.contactTime, soundDsp = origin + hit.soundTime;
-            if (hit.gain > 0)
+            if (trial.soundEnabled && hit.gain > 0)
             {
                 int index = audioUntil.FindIndex(t => t < now);
                 if (index < 0) throw new InvalidOperationException("Audio pool exhausted.");
                 var source = audioPool[index]; source.transform.position = ContactPoint(); source.clip = stoneClips[hit.clip];
                 source.volume = trial.volume * hit.gain; source.PlayScheduled(soundDsp);
+                AudioScheduleCount++;
                 audioUntil[index] = soundDsp + source.clip.length + .05;
             }
-            if (trial.backend != HapticBackend.XrController)
+            if (trial.vibrationEnabled && trial.backend != HapticBackend.XrController)
                 output.Schedule(hit.id, MarbleHapticOutput.Now + contactDsp - AudioSettings.dspTime, trial);
-            Record("impact_scheduled", hit.id, "Audio DSP target and host pulse deadline; physical onset not measured", hit);
+            Record("impact_scheduled", hit.id, "sound=" + trial.soundEnabled + "; visual=" + trial.visualEnabled + "; vibration=" + trial.vibrationEnabled + "; physical onset not measured", hit);
         }
         public void ConnectOutput()
         {
             if (Busy) return;
+            if (!settings.vibrationEnabled) { Message = "Enable vibration before connecting output."; return; }
             CloseOutput();
             if (desktopPreview) settings.backend = HapticBackend.Simulation;
             try
@@ -204,13 +207,14 @@ namespace MarbleHand
             if (!aligned || !TrackingReady) { Message = "Align the table with valid tracking first."; return; }
             if (desktopPreview) settings.backend = HapticBackend.Simulation;
             bool outputReady = settings.backend == HapticBackend.XrController ? ControllerAvailable() : output != null && output.Ready;
-            if (!outputReady || connectedBackend != settings.backend || (settings.backend == HapticBackend.Esp32 && serialPort.Trim() != connectedPort))
+            if (settings.vibrationEnabled && (!outputReady || connectedBackend != settings.backend || (settings.backend == HapticBackend.Esp32 && serialPort.Trim() != connectedPort)))
             { Message = "Connect the selected output before starting."; return; }
+            if (!settings.vibrationEnabled) CloseOutput();
             try
             {
-                if (stoneClips == null || stoneClips.Length == 0 || stoneClips.Any(c => !c || c.loadState != AudioDataLoadState.Loaded))
+                if (settings.soundEnabled && (stoneClips == null || stoneClips.Length == 0 || stoneClips.Any(c => !c || c.loadState != AudioDataLoadState.Loaded)))
                     throw new InvalidOperationException("Stone audio is missing or not preloaded.");
-                trial = settings.Snapshot(); plan = MarbleProtocol.Plan(trial, stoneClips.Length);
+                trial = settings.Snapshot(); plan = MarbleProtocol.Plan(trial, trial.soundEnabled ? stoneClips.Length : 1);
                 CloseLog();
                 string folder = Path.Combine(Application.persistentDataPath, "MarbleLogs"); Directory.CreateDirectory(folder);
                 string id = DateTime.UtcNow.ToString("yyyyMMdd-HHmmss-fff") + "-" + Guid.NewGuid().ToString("N").Substring(0, 8);
@@ -234,7 +238,7 @@ namespace MarbleHand
                 {
                     if (!TrackingReady) { Abort("Tracking lost before induction"); return; }
                     origin = AudioSettings.dspTime; previousFrame = origin; lastPoseLog = 0;
-                    end = origin + MarbleProtocol.EndTime(trial, plan, stoneClips.Max(c => c.length));
+                    end = origin + MarbleProtocol.EndTime(trial, plan, trial.soundEnabled ? stoneClips.Max(c => c.length) : 0);
                     Phase = TrialPhase.Induction; Record("induction_begin"); Message = "Watch the right hand. ESC / right B stops immediately.";
                 }
                 else
@@ -277,7 +281,7 @@ namespace MarbleHand
             if (log == null) return;
             var p = rig.rightArm.wristTarget.position; var q = rig.rightArm.wristTarget.rotation;
             log.WriteLine(string.Join(",", new[] { DateTime.UtcNow.ToString("O"), F(MarbleHapticOutput.Now), F(AudioSettings.dspTime), Phase.ToString(), name, id.ToString(),
-                hit.HasValue ? F(origin + hit.Value.contactTime) : "", hit.HasValue ? F(origin + hit.Value.soundTime) : "", F(MarbleAmount),
+                hit.HasValue ? F(origin + hit.Value.contactTime) : "", hit.HasValue && trial != null && trial.soundEnabled && hit.Value.gain > 0 ? F(origin + hit.Value.soundTime) : "", F(MarbleAmount),
                 F(p.x), F(p.y), F(p.z), F(q.x), F(q.y), F(q.z), F(q.w), "\"" + detail.Replace("\"", "\"\"").Replace("\r", " ").Replace("\n", " ") + "\"" }));
         }
         static string F(double v) => v.ToString("F6", CultureInfo.InvariantCulture);
@@ -311,8 +315,14 @@ namespace MarbleHand
                 if (GUILayout.Button(Phase == TrialPhase.PreRatings ? "Save baseline & begin" : "Save post ratings & finish")) SubmitRatings();
             }
             GUI.enabled = !Busy;
+            settings.soundEnabled = GUILayout.Toggle(settings.soundEnabled, "Sound: " + (settings.soundEnabled ? "ON" : "OFF"));
+            settings.visualEnabled = GUILayout.Toggle(settings.visualEnabled, "Visual (hammer + marble): " + (settings.visualEnabled ? "ON" : "OFF"));
+            bool nextVibration = GUILayout.Toggle(settings.vibrationEnabled, "Vibration: " + (settings.vibrationEnabled ? "ON" : "OFF"));
+            if (settings.vibrationEnabled && !nextVibration) CloseOutput();
+            settings.vibrationEnabled = nextVibration;
             if (GUILayout.Button("Condition: " + settings.condition)) settings.condition = (MarbleCondition)(((int)settings.condition + 1) % 3);
             if (GUILayout.Button("Duration: " + settings.duration + " s (demo / 5 min)")) settings.duration = settings.duration == 300 ? 30 : 300;
+            GUI.enabled = !Busy && settings.vibrationEnabled;
             if (GUILayout.Button("Output: " + settings.backend))
             { CloseOutput(); settings.backend = desktopPreview ? HapticBackend.Simulation : (HapticBackend)(((int)settings.backend + 1) % 3); }
             if (settings.backend == HapticBackend.Esp32)
@@ -324,8 +334,10 @@ namespace MarbleHand
             GUILayout.Label("Pulse: " + (settings.pulseSeconds * 1000).ToString("F0") + " ms | amplitude: " + settings.amplitude.ToString("F2"));
             settings.pulseSeconds = Mathf.Round(GUILayout.HorizontalSlider(settings.pulseSeconds, .01f, .2f) * 1000) / 1000;
             settings.amplitude = GUILayout.HorizontalSlider(settings.amplitude, 0, .3f);
-            GUILayout.Label("Audio gain: " + settings.volume.ToString("F2")); settings.volume = GUILayout.HorizontalSlider(settings.volume, 0, 1);
             if (GUILayout.Button("CONNECT OUTPUT")) ConnectOutput();
+            GUI.enabled = !Busy && settings.soundEnabled;
+            GUILayout.Label("Audio gain: " + settings.volume.ToString("F2")); settings.volume = GUILayout.HorizontalSlider(settings.volume, 0, 1);
+            GUI.enabled = !Busy;
             if (GUILayout.Button("ALIGN TABLE")) AlignTable();
             if (GUILayout.Button("START TRIAL")) StartTrial();
             GUI.enabled = true;

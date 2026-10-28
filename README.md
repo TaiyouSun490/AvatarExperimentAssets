@@ -4,6 +4,7 @@
 仮想ハンマーの接触・短い振動・石の音・右手の大理石化を組み合わせます。
 同期条件、音の遅延条件、肌のままの条件を比較できます。
 [Marble Handの導入・操作・原著との差](Experiments~/MarbleHandIllusion/README.md) を参照してください。
+身体所有感以外の錯覚研究については [身体・感覚錯覚の候補](Documentation~/BodyAndSensoryIllusions.md) に研究例をまとめています。
 
 `codex/dht-original-protocol` に **Newport & Gilpin (2011) の誘導手続きに準拠したVR版**を追加しました。
 原著補足を確認し、25秒・片手6.25cm・7秒フェード、SH/CH/DHの3条件と接地確認を実装しています。

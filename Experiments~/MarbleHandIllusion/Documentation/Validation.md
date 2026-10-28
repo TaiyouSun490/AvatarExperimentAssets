@@ -1,5 +1,15 @@
 # 検証記録 — 2026-10-28
 
+## 音・視覚・振動の個別切替を追加後
+
+- Unityの3,787チェック、FPSArmの484姿勢の回帰確認、Windowsビルドが成功。
+- 実行ファイルのデスクトップSimulationで、従来の3条件と、音・視覚・振動の全8組合せを短縮実行して完了。
+- 視覚OFFでハンマーと大理石化が消え、肌の手が残ること、音OFFで音源なしでも試行可能なこと、振動OFFで出力接続なし・パルスなしで進むことを確認。
+- 試行中に編集用設定を書き換えても刺激条件は固定され、3つの値がJSONに記録されることを確認。
+- `Logs/MarblePlayerSmoke-modalities.log` と `Builds/Smoke/result.txt` に結果を保存。実機HMDと振動子は未検証。
+
+## 初回の検証
+
 Unity 6000.5.9f1、Windows 64 bit、Direct3D 11、Monoで実行。
 
 - Windows PCVRプレイヤーのビルド成功。
